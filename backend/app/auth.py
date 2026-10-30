@@ -1,7 +1,7 @@
 """
 Authentication helpers for RepoLens v2.
 - bcrypt password hashing
-- JWT in httpOnly SameSite=Lax cookie
+- Session stored in SQLite database with JWT cookie
 - Simple in-memory rate-limiter for login attempts (per IP)
 """
 
@@ -70,16 +70,29 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# JWT
+# Session & Token
 # ---------------------------------------------------------------------------
 
 def create_token(user_id: int) -> str:
+    expires_at = int(time.time()) + TOKEN_EXPIRE_SECONDS
     payload = {
         "sub": str(user_id),
         "iat": int(time.time()),
-        "exp": int(time.time()) + TOKEN_EXPIRE_SECONDS,
+        "exp": expires_at,
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+async def create_session_for_user(user_id: int) -> str:
+    expires_at = int(time.time()) + TOKEN_EXPIRE_SECONDS
+    payload = {
+        "sub": str(user_id),
+        "iat": int(time.time()),
+        "exp": expires_at,
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    await db.create_session(token, user_id, expires_at)
+    return token
 
 
 def decode_token(token: str) -> Optional[int]:
@@ -124,12 +137,19 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    user_id = decode_token(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired session",
-        )
+    session = await db.get_valid_session(token)
+    if not session:
+        user_id = decode_token(token)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired session",
+            )
+        expires_at = int(time.time()) + TOKEN_EXPIRE_SECONDS
+        await db.create_session(token, user_id, expires_at)
+    else:
+        user_id = session["user_id"]
+
     user = await db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -146,14 +166,14 @@ async def optional_current_user(
     """Like get_current_user but returns None instead of raising."""
     if not repolens_session:
         return None
-    user_id = decode_token(repolens_session)
-    if user_id is None:
+    try:
+        return await get_current_user(request, repolens_session)
+    except HTTPException:
         return None
-    return await db.get_user_by_id(user_id)
 
 
 # ---------------------------------------------------------------------------
-# Auth endpoint handlers (called from api_v2.py)
+# Auth endpoint handlers
 # ---------------------------------------------------------------------------
 
 async def signup_handler(email: str, password: str):
@@ -179,4 +199,3 @@ async def login_handler(request: Request, email: str, password: str):
 
     _clear_failures(client_ip)
     return user
-

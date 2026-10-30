@@ -135,3 +135,4 @@ export default function BenchmarkModal({ onClose }) {
     </div>
   );
 }
+

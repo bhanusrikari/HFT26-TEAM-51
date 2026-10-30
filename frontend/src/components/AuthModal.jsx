@@ -142,3 +142,4 @@ export default function AuthModal({ onAuthSuccess, initialMode = 'login', sessio
     </div>
   );
 }
+

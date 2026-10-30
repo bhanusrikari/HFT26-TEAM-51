@@ -1,6 +1,6 @@
 """
 SQLite database layer for RepoLens v2.
-Tables: users, repositories, search_history
+Tables: users, sessions, repositories, search_history
 All I/O uses the stdlib sqlite3 via a thread-pool executor so async FastAPI
 routes never block the event loop.
 """
@@ -10,12 +10,14 @@ import json
 import logging
 import os
 import sqlite3
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.getenv("DB_PATH", "repolens.db")
+DEFAULT_DB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DB_PATH = os.getenv("DB_PATH", os.path.join(DEFAULT_DB_DIR, "repolens.db"))
 
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="db")
 
@@ -32,6 +34,13 @@ CREATE TABLE IF NOT EXISTS users (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     email        TEXT    NOT NULL UNIQUE,
     password_hash TEXT   NOT NULL,
+    created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token        TEXT    PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users(id),
+    expires_at   INTEGER NOT NULL,
     created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
@@ -66,6 +75,7 @@ CREATE TABLE IF NOT EXISTS search_history (
 
 def _get_conn() -> sqlite3.Connection:
     """Open (or create) the SQLite database and return a connection."""
+    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -141,6 +151,57 @@ async def get_user_by_email(email: str) -> Optional[dict]:
 
 async def get_user_by_id(user_id: int) -> Optional[dict]:
     return await _run_sync(_get_user_by_id_sync, user_id)
+
+
+# ---------------------------------------------------------------------------
+# Session operations (persisted in DB to survive restarts)
+# ---------------------------------------------------------------------------
+
+def _create_session_sync(token: str, user_id: int, expires_at: int):
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+            (token, user_id, expires_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _get_valid_session_sync(token: str) -> Optional[dict]:
+    conn = _get_conn()
+    try:
+        now = int(time.time())
+        cur = conn.execute(
+            "SELECT token, user_id, expires_at, created_at FROM sessions WHERE token = ? AND expires_at > ?",
+            (token, now),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def _delete_session_sync(token: str):
+    conn = _get_conn()
+    try:
+        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def create_session(token: str, user_id: int, expires_at: int):
+    await _run_sync(_create_session_sync, token, user_id, expires_at)
+
+
+async def get_valid_session(token: str) -> Optional[dict]:
+    return await _run_sync(_get_valid_session_sync, token)
+
+
+async def delete_session(token: str):
+    await _run_sync(_delete_session_sync, token)
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +319,7 @@ async def list_repos(user_id: int) -> list:
 
 
 # ---------------------------------------------------------------------------
-# Search history
+# Search history (persisted in DB to survive restarts)
 # ---------------------------------------------------------------------------
 
 def _save_history_sync(user_id: int, repo_id: str, query: str, result_count: int):
@@ -305,7 +366,7 @@ async def get_history(user_id: int, repo_id: Optional[str] = None) -> list:
 # Benchmark result
 # ---------------------------------------------------------------------------
 
-_BENCHMARK_FILE = os.path.join(os.path.dirname(DB_PATH), "benchmark_result.json")
+_BENCHMARK_FILE = os.path.join(DEFAULT_DB_DIR, "benchmark_result.json")
 
 
 def get_benchmark_result() -> Optional[dict]:
@@ -317,4 +378,3 @@ def get_benchmark_result() -> Optional[dict]:
             return json.load(f)
     except Exception:
         return None
-

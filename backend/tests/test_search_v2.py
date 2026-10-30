@@ -44,3 +44,4 @@ def test_search_v2_per_file_cap_three():
     results = engine.search("common_target handle_request", top_k=10)
     server_count = sum(1 for r in results if r.file_path == "server.py")
     assert server_count <= 3, f"Expected at most 3 chunks per file, got {server_count}"
+

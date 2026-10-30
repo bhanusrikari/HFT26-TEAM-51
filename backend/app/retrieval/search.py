@@ -1,3 +1,4 @@
+import heapq
 import logging
 import os
 import re
@@ -186,27 +187,27 @@ class SearchEngine:
 
         for c, norm_lex in zip(candidates, norm_lex_list):
             c.lexical_norm = norm_lex
+            lex_effective = 1.0 if (norm_lex == 0.0 and c.lexical_raw > 0.0 and len(set(raw_lex_list)) == 1) else norm_lex
             score = combine(
-                lexical=c.lexical_norm,
+                lexical=lex_effective,
                 symbol=c.symbol_score,
                 path=c.path_score,
                 semantic=c.semantic_score,
             )
             c.final_score = min(1.0, max(0.0, score))
 
-        # Sort descending by score; tie-break by shorter chunk, then path
-        candidates.sort(
+        # Retrieve top candidate pool (30-50) without full sort — O(n log k) vs O(n log n)
+        pool_target = max(50, top_k * 5)
+        candidate_pool = heapq.nlargest(
+            min(pool_target, len(candidates)),
+            candidates,
             key=lambda c: (
-                -round(c.final_score, 6),
-                (c.chunk.end_line - c.chunk.start_line + 1),
+                round(c.final_score, 6),
+                -(c.chunk.end_line - c.chunk.start_line + 1),
                 c.chunk.file_path,
                 c.chunk.start_line,
-            )
+            ),
         )
-
-        # Retrieve a candidate pool of 30-50 before dedup
-        pool_target = max(50, top_k * 5)
-        candidate_pool = candidates[:pool_target]
 
         # Dedup: drop overlapping chunks (same file, overlapping lines).
         # Keep higher-scoring one (prefer smaller/more specific on ties).

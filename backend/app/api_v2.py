@@ -32,6 +32,7 @@ from . import tasks as bg_tasks
 from .auth import (
     COOKIE_NAME,
     clear_auth_cookie,
+    create_session_for_user,
     create_token,
     get_current_user,
     login_handler,
@@ -93,7 +94,7 @@ def health():
 @router.post("/auth/signup", status_code=status.HTTP_201_CREATED)
 async def signup(req: SignupReq, response: Response):
     user = await signup_handler(req.email, req.password)
-    token = create_token(user["id"])
+    token = await create_session_for_user(user["id"])
     set_auth_cookie(response, token)
     return {"id": user["id"], "email": user["email"], "created_at": user["created_at"]}
 
@@ -101,13 +102,15 @@ async def signup(req: SignupReq, response: Response):
 @router.post("/auth/login")
 async def login(req: LoginReq, request: Request, response: Response):
     user = await login_handler(request, req.email, req.password)
-    token = create_token(user["id"])
+    token = await create_session_for_user(user["id"])
     set_auth_cookie(response, token)
     return {"id": user["id"], "email": user["email"]}
 
 
 @router.post("/auth/logout")
-async def logout(response: Response):
+async def logout(response: Response, repolens_session: Optional[str] = None):
+    if repolens_session:
+        await db.delete_session(repolens_session)
     clear_auth_cookie(response)
     return {"detail": "Logged out"}
 
