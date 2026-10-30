@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Github, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Github, ArrowRight, AlertCircle } from 'lucide-react';
 
 // Regex for github repo URL: https://github.com/owner/repo, optional .git or /tree/branch
-const GITHUB_REGEX = /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(\/.*)?$/;
+const GITHUB_REGEX = /^https?:\/\/(www\.)?github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(\.git)?(\/tree\/[a-zA-Z0-9_.\-\/]+)?\/?$/;
 
 export function GithubForm({ onIndex, isIndexing }) {
   const [url, setUrl] = useState('');
@@ -15,7 +15,7 @@ export function GithubForm({ onIndex, isIndexing }) {
       return false;
     }
     if (!GITHUB_REGEX.test(trimmed)) {
-      setValidationError('Must be a valid GitHub URL, e.g. https://github.com/owner/repo');
+      setValidationError('Must be a valid GitHub URL, e.g. https://github.com/owner/repo, with optional .git or /tree/branch');
       return false;
     }
     setValidationError('');
@@ -36,11 +36,6 @@ export function GithubForm({ onIndex, isIndexing }) {
     }
   };
 
-  const handleQuickExample = (exampleUrl) => {
-    setUrl(exampleUrl);
-    setValidationError('');
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
@@ -59,7 +54,7 @@ export function GithubForm({ onIndex, isIndexing }) {
             type="url"
             value={url}
             onChange={handleChange}
-            placeholder="https://github.com/fastapi/fastapi"
+            placeholder="https://github.com/owner/repo"
             disabled={isIndexing}
             className="w-full pl-8 pr-3 py-2 bg-[#0d1117] border border-dark-border rounded-md text-xs font-mono text-dark-bright placeholder:text-dark-muted/60 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue transition-colors disabled:opacity-50"
           />
@@ -73,38 +68,14 @@ export function GithubForm({ onIndex, isIndexing }) {
         </div>
       )}
 
-      {/* Quick sample URLs for fast testing */}
-      <div className="space-y-1">
-        <span className="text-[11px] text-dark-muted block">Try an example:</span>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            disabled={isIndexing}
-            onClick={() => handleQuickExample('https://github.com/pallets/flask')}
-            className="text-[11px] font-mono px-2 py-0.5 rounded bg-dark-subtle hover:bg-dark-border text-dark-muted hover:text-dark-bright transition-colors"
-          >
-            pallets/flask
-          </button>
-          <button
-            type="button"
-            disabled={isIndexing}
-            onClick={() => handleQuickExample('https://github.com/expressjs/express')}
-            className="text-[11px] font-mono px-2 py-0.5 rounded bg-dark-subtle hover:bg-dark-border text-dark-muted hover:text-dark-bright transition-colors"
-          >
-            expressjs/express
-          </button>
-        </div>
-      </div>
-
       <button
         type="submit"
         disabled={!url.trim() || isIndexing}
         className="w-full py-2 px-3 rounded-md text-xs font-semibold bg-brand-blue hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed text-[#0d1117] font-bold shadow transition-colors flex items-center justify-center gap-1.5"
       >
-        <span>{isIndexing ? 'Indexing repository…' : 'Index repository'}</span>
+        <span>{isIndexing ? 'Indexing…' : 'Index repository'}</span>
         <ArrowRight className="w-3.5 h-3.5" />
       </button>
     </form>
   );
 }
-

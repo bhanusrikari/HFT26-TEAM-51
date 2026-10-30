@@ -12,10 +12,8 @@ import {
 // Base URL: relative "/api" by default (routed through Vite dev proxy) unless overridden
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-// Initial mock mode from env var (defaults to true for standalone preview unless explicitly false)
-const envVal = import.meta.env.VITE_USE_MOCK;
-const DEFAULT_USE_MOCK = envVal === undefined ? true : (envVal === 'true' || envVal === true);
-let isMockActive = DEFAULT_USE_MOCK;
+// Mock mode: strictly defaults to false when unset (only "true" enables mock)
+const isMockActive = import.meta.env.VITE_USE_MOCK === 'true';
 
 // State listener for UI indicators
 const listeners = new Set();
@@ -27,11 +25,6 @@ export function subscribeToApiState(fn) {
   listeners.add(fn);
   fn(isMockActive, getMockError());
   return () => listeners.delete(fn);
-}
-
-export function setMockMode(active) {
-  isMockActive = !!active;
-  notifyListeners();
 }
 
 export function isMockEnabled() {

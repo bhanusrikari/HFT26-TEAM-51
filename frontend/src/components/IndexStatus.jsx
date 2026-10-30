@@ -20,18 +20,7 @@ export function IndexStatus({
   activeRepo,
   repoDetails,
 }) {
-  const [copiedId, setCopiedId] = useState(false);
   const [showSkipped, setShowSkipped] = useState(false);
-
-  const handleCopyId = async (id) => {
-    try {
-      await navigator.clipboard.writeText(id);
-      setCopiedId(true);
-      setTimeout(() => setCopiedId(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy ID: ', err);
-    }
-  };
 
   // 1. Loading state with animated spinner and step text
   if (isIndexing) {
@@ -44,10 +33,7 @@ export function IndexStatus({
           <Loader2 className="w-5 h-5 text-brand-blue animate-spin shrink-0" />
           <div className="space-y-0.5">
             <span className="text-xs font-semibold text-brand-hover block">
-              {indexingStep || 'Indexing in progress…'}
-            </span>
-            <span className="text-[11px] text-dark-muted">
-              Parsing AST and creating searchable code chunks
+              {indexingStep || 'Indexing…'}
             </span>
           </div>
         </div>
@@ -81,23 +67,10 @@ export function IndexStatus({
               {repo.name}
             </h4>
           </div>
-          {/* Repo ID with copy button */}
+          {/* Repo ID */}
           <div className="flex items-center gap-1 text-[11px] font-mono text-dark-muted">
             <Hash className="w-3 h-3 text-dark-muted/60" />
             <span className="truncate">{repo.repo_id}</span>
-            <button
-              type="button"
-              onClick={() => handleCopyId(repo.repo_id)}
-              className="p-0.5 hover:text-dark-bright text-dark-muted/70 transition-colors"
-              title="Copy repo ID"
-              aria-label="Copy repository ID"
-            >
-              {copiedId ? (
-                <Check className="w-3 h-3 text-emerald-400" />
-              ) : (
-                <Copy className="w-3 h-3" />
-              )}
-            </button>
           </div>
         </div>
         <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 font-medium shrink-0">

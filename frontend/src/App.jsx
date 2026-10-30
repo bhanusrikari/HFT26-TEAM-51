@@ -76,19 +76,20 @@ export default function App() {
   const handleUploadZip = async (file) => {
     setIsIndexing(true);
     setSearchError(null);
-    setIndexingStep('Uploading archive…');
+    setIndexingStep('Uploading…');
+
+    const stepTimer = setTimeout(() => {
+      setIndexingStep('Indexing…');
+    }, 500);
 
     try {
-      // Small simulated step transitions for polished UX
-      setTimeout(() => setIndexingStep('Unpacking & indexing files…'), 400);
-      setTimeout(() => setIndexingStep('Extracting AST chunk symbols…'), 800);
-
       const res = await uploadZip(file);
       setSessionRepos((prev) => [res, ...prev.filter((r) => r.repo_id !== res.repo_id)]);
       await selectRepo(res.repo_id, res);
     } catch (err) {
       setSearchError(err);
     } finally {
+      clearTimeout(stepTimer);
       setIsIndexing(false);
       setIndexingStep('');
     }
@@ -98,12 +99,9 @@ export default function App() {
   const handleIndexGithub = async (url) => {
     setIsIndexing(true);
     setSearchError(null);
-    setIndexingStep('Connecting to GitHub…');
+    setIndexingStep('Indexing…');
 
     try {
-      setTimeout(() => setIndexingStep('Cloning tree & reading manifests…'), 400);
-      setTimeout(() => setIndexingStep('Chunking symbols and indexing…'), 800);
-
       const res = await indexGithub(url);
       setSessionRepos((prev) => [res, ...prev.filter((r) => r.repo_id !== res.repo_id)]);
       await selectRepo(res.repo_id, res);

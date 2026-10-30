@@ -6,7 +6,7 @@ RepoLens indexes codebases from ZIP archives or public GitHub repositories and a
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack & Dependencies
 
 - **Framework**: React 18 + Vite 6
 - **Styling**: Tailwind CSS v3 (GitHub Dark / VS Code developer palette)
@@ -39,8 +39,8 @@ cp .env.example .env
 ```
 
 Environment variables:
-- `VITE_USE_MOCK`: Set to `true` to use realistic offline fixtures without running the backend. Set to `false` to communicate with the FastAPI backend.
-- `VITE_API_BASE`: Relative path to API root (default: `/api`).
+- `VITE_USE_MOCK`: Defaults to `false` when unset. Only `"true"` enables mock mode. Set `VITE_USE_MOCK=true` to use realistic offline fixtures and simulation controls without running the backend.
+- `VITE_API_BASE`: Relative path to API root (default: `/api`). Overrides the API base URL if needed.
 - `VITE_BACKEND_TARGET`: Backend URL for Vite dev server proxy (default: `http://localhost:8000`).
 
 ### 3. Run Development Server
@@ -60,30 +60,22 @@ npm run preview
 
 ---
 
-## 🔄 Mock Mode vs Real Backend Switch
+## 🔄 Mock Mode Configuration (`VITE_USE_MOCK`)
 
-Because the backend is developed in parallel, the frontend features **full standalone mock fidelity**:
+The frontend adheres to strict separation between mock fixtures and the live FastAPI backend:
 
-1. **Via Environment Variable** (per contract requirement):
-   - In `frontend/.env`:
-     ```env
-     # Enable Mock Mode
-     VITE_USE_MOCK=true
-
-     # Or Disable Mock Mode to connect to FastAPI at http://localhost:8000
-     VITE_USE_MOCK=false
-     ```
-   - Restart the Vite dev server (`npm run dev`).
-
-2. **Via In-App Dev Tools Pill**:
-   - In the top header, click the **Mock Mode** / **Live Mode** badge.
-   - You can toggle between live and mock on the fly.
-   - You can also simulate backend edge cases:
-     - **Clean 200 OK**: Normal search with grounded explanations and citations `[1]`, `[2]`.
-     - **Empty results**: 0 matching snippets state.
-     - **Explanation Error**: Returns code snippets normally while surfacing `explanation_error` (e.g. LLM quota / timeout).
-     - **404 Not Found**: Simulated missing or expired repository ID with re-index prompt.
-     - **502 Bad Gateway**: Upstream GitHub rate limit or server crash banner with retry.
+- **Default Behavior (Real Backend)**:
+  - When `VITE_USE_MOCK` is unset or set to `false`, the frontend connects directly to the FastAPI backend through the `/api` proxy.
+  - The mock simulation toolbar is hidden.
+- **Mock Mode (`VITE_USE_MOCK=true`)**:
+  - When set to `true`, the frontend runs in self-contained mock mode with 3 pre-indexed repositories (`repolens-backend`, `auth-gateway-ts`, `minirust-kv-engine`), realistic Python/TypeScript code fixtures, grounded explanations with `[1]`, `[2]` citations, and 600–1200ms simulated latency.
+  - An in-app **Mock Simulation** popover becomes available in the header allowing developers and judges to simulate backend error states:
+    - **Clean 200 OK**: Normal search with grounded explanations and citations `[1]`, `[2]`.
+    - **Empty results**: 0 matching snippets state.
+    - **Explanation Error**: Returns code snippets normally while surfacing `explanation_error` (e.g. LLM quota / timeout).
+    - **404 Not Found**: Simulated missing or expired repository ID with re-index prompt.
+    - **502 Bad Gateway**: Upstream GitHub rate limit or server crash banner with retry.
+- **Switching**: The environment variable (`VITE_USE_MOCK`) is the sole toggle between mock and real backend.
 
 ---
 
@@ -107,7 +99,7 @@ export default defineConfig({
 });
 ```
 
-All fetch calls in `src/api/client.js` use the relative path `/api/...`, meaning:
+All fetch calls in `src/api/client.js` use relative URLs (`/api/...` or `VITE_API_BASE`), meaning:
 - `http://localhost:5173/api/health` -> proxied to `http://localhost:8000/api/health`
 - `http://localhost:5173/api/repositories/upload` -> proxied to `http://localhost:8000/api/repositories/upload`
 - `http://localhost:5173/api/repositories/github` -> proxied to `http://localhost:8000/api/repositories/github`
@@ -136,4 +128,3 @@ All fetch calls in `src/api/client.js` use the relative path `/api/...`, meaning
 - Interactive `[1]`, `[2]` citations in AI explanation scroll to and trigger a CSS pulse ring on target code snippet cards.
 - Line numbers starting accurately at `start_line` for every code snippet.
 - Responsive breakpoints at 375px (mobile accordion), 768px (tablet), and 1280px+ (desktop).
-

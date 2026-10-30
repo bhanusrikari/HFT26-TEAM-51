@@ -1,26 +1,23 @@
 import React, { useState } from 'react';
 import {
   isMockEnabled,
-  setMockMode,
   setSimulatedError,
   getSimulatedError,
 } from '../api/client';
-import { Bug, Check, AlertOctagon, HelpCircle } from 'lucide-react';
+import { Bug, Check } from 'lucide-react';
 
 export function MockSimulator() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentError, setCurrentError] = useState(getSimulatedError());
-  const [mockActive, setMockActive] = useState(isMockEnabled());
+
+  // Show error-simulation controls ONLY when mock mode is on
+  if (!isMockEnabled()) {
+    return null;
+  }
 
   const handleErrorChange = (mode) => {
     setCurrentError(mode);
     setSimulatedError(mode);
-  };
-
-  const handleToggleMock = (e) => {
-    const val = e.target.checked;
-    setMockActive(val);
-    setMockMode(val);
   };
 
   return (
@@ -31,21 +28,19 @@ export function MockSimulator() {
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium border transition-colors ${
           currentError !== 'none'
             ? 'bg-amber-950/70 border-amber-600/80 text-amber-300 animate-pulse'
-            : mockActive
-            ? 'bg-purple-950/60 border-purple-800/80 text-purple-300 hover:bg-purple-900/60'
-            : 'bg-dark-subtle border-dark-border text-dark-muted hover:text-dark-bright'
+            : 'bg-purple-950/60 border-purple-800/80 text-purple-300 hover:bg-purple-900/60'
         }`}
-        title="Mock Mode & Error Simulation Settings"
+        title="Mock Error Simulation Controls"
         aria-expanded={isOpen}
       >
         <Bug className="w-3.5 h-3.5" />
-        <span>{mockActive ? 'Mock Mode' : 'Live Mode'}</span>
+        <span>Mock Simulation</span>
         {currentError !== 'none' && (
           <span className="w-2 h-2 rounded-full bg-amber-400" />
         )}
       </button>
 
-      {/* Popover menu */}
+      {/* Popover menu for error simulation */}
       {isOpen && (
         <>
           <div
@@ -56,26 +51,17 @@ export function MockSimulator() {
             <div className="flex items-center justify-between border-b border-dark-border/80 pb-2">
               <span className="font-semibold text-dark-bright flex items-center gap-1.5">
                 <Bug className="w-4 h-4 text-purple-400" />
-                <span>Simulation Controls</span>
+                <span>Simulate Backend Scenarios</span>
               </span>
-              <span className="text-[10px] font-mono text-dark-muted">Dev Tools</span>
+              <span className="text-[10px] font-mono text-purple-400 bg-purple-950/80 px-1.5 py-0.5 rounded border border-purple-800/60">
+                Mock ON
+              </span>
             </div>
 
-            {/* Mock Mode Switch */}
-            <label className="flex items-center justify-between cursor-pointer py-1">
-              <span className="text-dark-text font-medium">Use Mock Data</span>
-              <input
-                type="checkbox"
-                checked={mockActive}
-                onChange={handleToggleMock}
-                className="w-4 h-4 accent-purple-600 rounded bg-dark-subtle border-dark-border"
-              />
-            </label>
-
             {/* Simulated Error States */}
-            <div className="space-y-1.5 pt-1">
+            <div className="space-y-1.5">
               <span className="text-[11px] font-medium text-dark-muted block">
-                Simulate Backend Edge Cases:
+                Select test scenario:
               </span>
 
               {[
@@ -104,7 +90,7 @@ export function MockSimulator() {
             </div>
 
             <div className="pt-2 border-t border-dark-border/60 text-[11px] text-dark-muted leading-tight">
-              Switching to real backend only requires <code className="text-purple-300">VITE_USE_MOCK=false</code> in <code className="text-purple-300">.env</code>.
+              To connect to real backend, set <code className="text-purple-300">VITE_USE_MOCK=false</code> in <code className="text-purple-300">.env</code>.
             </div>
           </div>
         </>
@@ -112,4 +98,3 @@ export function MockSimulator() {
     </div>
   );
 }
-
