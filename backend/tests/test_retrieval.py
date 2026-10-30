@@ -5,7 +5,7 @@ import httpx
 
 from app.ai.explainer import explain, _validate_hallucinations
 from app.ai.featherless import FeatherlessError, chat_completion
-from app.models import Chunk, RepoIndex, SearchResult
+from app.models import Chunk, FileRecord, RepoIndex, SearchResult
 from app.retrieval.ranking import (
     BM25,
     LEXICAL_WEIGHT,
@@ -325,7 +325,7 @@ def test_get_engine_caching():
 # -------------------------------------------------------------------------
 # 10. Explainer Tests (Mocked Network)
 # -------------------------------------------------------------------------
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_explainer_success(monkeypatch):
     monkeypatch.setenv("FEATHERLESS_API_KEY", "test-mock-key-123")
 
@@ -366,7 +366,7 @@ async def test_explainer_success(monkeypatch):
         assert "verify_token" in explanation
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_explainer_missing_key(monkeypatch):
     monkeypatch.setenv("FEATHERLESS_API_KEY", "")
     results = [
@@ -388,7 +388,7 @@ async def test_explainer_missing_key(monkeypatch):
     assert "FEATHERLESS_API_KEY is not set" in err
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_explainer_timeout_and_retry(monkeypatch):
     monkeypatch.setenv("FEATHERLESS_API_KEY", "test-mock-key")
 
@@ -424,7 +424,7 @@ async def test_explainer_timeout_and_retry(monkeypatch):
         assert mock_post.call_count == 2
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_explainer_429_retry(monkeypatch):
     monkeypatch.setenv("FEATHERLESS_API_KEY", "test-mock-key")
 
@@ -457,7 +457,7 @@ async def test_explainer_429_retry(monkeypatch):
         assert mock_post.call_count == 2
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_explainer_malformed_json(monkeypatch):
     monkeypatch.setenv("FEATHERLESS_API_KEY", "test-mock-key")
 
@@ -503,3 +503,206 @@ def test_explainer_hallucinated_path_flagging():
     hallucinated_ident = "In [1], run `super_unknown_crypto_hash` to proceed."
     validated_bad_ident = _validate_hallucinations(hallucinated_ident, evidence)
     assert "(Note: some references were not verified against retrieved code.)" in validated_bad_ident
+
+
+# -------------------------------------------------------------------------
+# 11. End-to-End API and Multi-Repo Tests
+# -------------------------------------------------------------------------
+import io
+import zipfile
+from fastapi.testclient import TestClient
+from app.main import app
+from app import store
+from app.ingestion import indexer
+
+
+def test_api_empty_query():
+    client = TestClient(app)
+    index = create_sample_repo_index()
+    store.save(index)
+
+    # Empty query should return 400
+    res = client.post("/api/search", json={"repo_id": index.repo_id, "query": ""})
+    assert res.status_code == 400
+    assert "Query is empty" in res.json().get("detail", "")
+
+    # Whitespace query should return 400
+    res2 = client.post("/api/search", json={"repo_id": index.repo_id, "query": "   "})
+    assert res2.status_code == 400
+
+
+def test_api_unknown_repo_id():
+    client = TestClient(app)
+    res = client.post("/api/search", json={"repo_id": "nonexistent-repo-999", "query": "auth"})
+    assert res.status_code == 404
+    assert "Repository not found" in res.json().get("detail", "")
+
+
+def test_keyword_search_exact_line_range():
+    index = create_sample_repo_index()
+    engine = SearchEngine(index)
+
+    results = engine.search("create_access_token", top_k=3)
+    assert len(results) > 0
+    top = results[0]
+    assert "create_access_token" in (top.symbol or "")
+    assert top.start_line == 29
+    assert top.end_line == 36
+    # Verify code matches exact line slice
+    full_chunk = next(c for c in index.chunks if c.symbol == "AuthService.create_access_token")
+    assert top.code == full_chunk.code
+
+
+def test_no_match_query():
+    index = create_sample_repo_index()
+    engine = SearchEngine(index)
+
+    # Query with nonexistent terms
+    results = engine.search("xyz999_nonexistent_quantum_hyperloop", top_k=5)
+    assert results == []
+
+    # Special characters only
+    results_special = engine.search("!@#$%^&*()_+", top_k=5)
+    assert results_special == []
+
+
+def test_two_repos_no_cross_contamination():
+    index_a = RepoIndex(
+        repo_id="repo-alpha",
+        name="alpha",
+        files=[FileRecord(path="alpha.py", language="python", size_bytes=100, line_count=10)],
+        chunks=[
+            Chunk(
+                chunk_id="alpha:1-5",
+                file_path="alpha.py",
+                language="python",
+                symbol="unique_alpha_symbol",
+                kind="function",
+                start_line=1,
+                end_line=5,
+                code="def unique_alpha_symbol():\n    return 'alpha'",
+            )
+        ],
+    )
+    index_b = RepoIndex(
+        repo_id="repo-beta",
+        name="beta",
+        files=[FileRecord(path="beta.py", language="python", size_bytes=100, line_count=10)],
+        chunks=[
+            Chunk(
+                chunk_id="beta:1-5",
+                file_path="beta.py",
+                language="python",
+                symbol="only_in_beta_secret",
+                kind="function",
+                start_line=1,
+                end_line=5,
+                code="def only_in_beta_secret():\n    return 'beta'",
+            )
+        ],
+    )
+    store.save(index_a)
+    store.save(index_b)
+
+    client = TestClient(app)
+
+    # Search in alpha should NEVER return beta.py
+    res_a = client.post("/api/search", json={"repo_id": "repo-alpha", "query": "unique_alpha_symbol"})
+    assert res_a.status_code == 200
+    results_a = res_a.json()["results"]
+    assert len(results_a) == 1
+    assert results_a[0]["file_path"] == "alpha.py"
+    assert not any("beta" in r["file_path"] for r in results_a)
+
+    # Searching beta term in alpha should return 0 results
+    res_a_beta = client.post("/api/search", json={"repo_id": "repo-alpha", "query": "only_in_beta_secret"})
+    assert res_a_beta.status_code == 200
+    assert len(res_a_beta.json()["results"]) == 0
+
+    # Search in beta should NEVER return alpha.py
+    res_b = client.post("/api/search", json={"repo_id": "repo-beta", "query": "only_in_beta_secret"})
+    assert res_b.status_code == 200
+    results_b = res_b.json()["results"]
+    assert len(results_b) == 1
+    assert results_b[0]["file_path"] == "beta.py"
+    assert not any("alpha" in r["file_path"] for r in results_b)
+
+
+def test_embeddings_fallback_when_unavailable(monkeypatch, caplog):
+    import logging
+    monkeypatch.setenv("EMBEDDINGS_ENABLED", "true")
+    monkeypatch.delenv("FEATHERLESS_API_KEY", raising=False)
+
+    index = create_sample_repo_index()
+    with caplog.at_level(logging.WARNING):
+        engine = SearchEngine(index)
+        results = engine.search("verify_token", top_k=3)
+
+    assert len(results) > 0
+    # Must degrade gracefully to keyword/BM25 without crashing
+    assert any("degrading to keyword/BM25 ranking" in record.message for record in caplog.records)
+
+
+def test_web_only_fixture_e2e():
+    """Build a web-only repository in memory with .html, .css, .js files."""
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w") as zf:
+        zf.writestr(
+            "index.html",
+            "<!DOCTYPE html>\n<html>\n<head>\n  <title>Shop</title>\n</head>\n<body>\n  <div id='cart'></div>\n</body>\n</html>\n",
+        )
+        zf.writestr(
+            "styles/main.css",
+            "body {\n  margin: 0;\n  padding: 0;\n  background: #f5f5f5;\n}\n#cart {\n  border: 1px solid #ccc;\n}\n",
+        )
+        zf.writestr(
+            "scripts/cart.js",
+            "function renderCart(items) {\n  const el = document.getElementById('cart');\n  el.innerHTML = items.join(', ');\n}\n",
+        )
+        zf.writestr(
+            "scripts/checkout.js",
+            "function processCheckout(orderId) {\n  console.log('Processing checkout for ' + orderId);\n  return true;\n}\n",
+        )
+    bio.seek(0)
+
+    client = TestClient(app)
+
+    # 1. Upload web.zip
+    up_res = client.post(
+        "/api/repositories/upload",
+        files={"file": ("web_app.zip", bio.getvalue(), "application/zip")},
+    )
+    assert up_res.status_code == 200
+    up_data = up_res.json()
+    repo_id = up_data["repo_id"]
+    assert up_data["indexed_files"] == 4
+
+    # 2. GET repository details: languages must ONLY show web and javascript
+    get_res = client.get(f"/api/repositories/{repo_id}")
+    assert get_res.status_code == 200
+    details = get_res.json()
+    languages = details["languages"]
+    assert set(languages.keys()) == {"web", "javascript"}
+    assert "python" not in languages
+    assert "typescript" not in languages
+
+    # 3. Search for a function inside web repository
+    search_res = client.post(
+        "/api/search",
+        json={"repo_id": repo_id, "query": "renderCart", "explain": False},
+    )
+    assert search_res.status_code == 200
+    results = search_res.json()["results"]
+    assert len(results) > 0
+    top = results[0]
+    assert top["file_path"] == "scripts/cart.js"
+    assert top["symbol"] == "renderCart"
+    assert top["start_line"] == 1
+    assert top["end_line"] == 4
+    assert "function renderCart" in top["code"]
+
+    # Ensure NO .py or .ts files are returned anywhere in results
+    for r in results:
+        assert not r["file_path"].endswith(".py")
+        assert not r["file_path"].endswith(".ts")
+        assert not r["file_path"].endswith(".tsx")

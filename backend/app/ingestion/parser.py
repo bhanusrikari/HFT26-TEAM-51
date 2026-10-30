@@ -4,20 +4,38 @@ from typing import List, Optional, Tuple
 
 from ..models import Chunk
 
+
 def split_large_chunks(chunks: List[Chunk], all_lines: List[str]) -> List[Chunk]:
     """
     Any chunk longer than 120 lines is split into consecutive 80-line parts
     keeping the same symbol (parts after the first still have the symbol; kind unchanged).
     """
+    total_lines = len(all_lines)
     result: List[Chunk] = []
     for c in chunks:
-        num_lines = c.end_line - c.start_line + 1
+        # Clamp start and end lines to valid ranges
+        s_line = max(1, min(c.start_line, total_lines))
+        e_line = max(s_line, min(c.end_line, total_lines))
+
+        num_lines = e_line - s_line + 1
         if num_lines <= 120:
-            result.append(c)
+            sub_code = "\n".join(all_lines[s_line - 1 : e_line])
+            result.append(
+                Chunk(
+                    chunk_id=f"{c.file_path}:{s_line}-{e_line}",
+                    file_path=c.file_path,
+                    language=c.language,
+                    symbol=c.symbol,
+                    kind=c.kind,
+                    start_line=s_line,
+                    end_line=e_line,
+                    code=sub_code,
+                )
+            )
         else:
-            curr_start = c.start_line
-            while curr_start <= c.end_line:
-                curr_end = min(c.end_line, curr_start + 79)
+            curr_start = s_line
+            while curr_start <= e_line:
+                curr_end = min(e_line, curr_start + 79)
                 sub_code = "\n".join(all_lines[curr_start - 1 : curr_end])
                 result.append(
                     Chunk(
@@ -34,6 +52,7 @@ def split_large_chunks(chunks: List[Chunk], all_lines: List[str]) -> List[Chunk]
                 curr_start = curr_end + 1
     return result
 
+
 def find_closing_brace_line(
     text: str,
     open_brace_char_index: int,
@@ -46,7 +65,8 @@ def find_closing_brace_line(
     single-line comments (//), and multi-line comments (/* */).
     If no balanced end is found within max_lines lines, returns a 60-line fallback window.
     """
-    fallback_end = min(len(all_lines), start_line + 59)
+    total_lines = len(all_lines)
+    fallback_end = min(total_lines, start_line + 59)
     n = len(text)
     i = open_brace_char_index
     depth = 0
@@ -111,20 +131,24 @@ def find_closing_brace_line(
                 in_template = True
             if depth == 0:
                 end_line = text[:i].count("\n") + 1
-                return end_line
+                return max(start_line, min(total_lines, end_line))
 
         i += 1
 
     return fallback_end
 
+
 def parse_python(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
     """Parse Python source using the ast module."""
     try:
         tree = ast.parse(text)
-    except (SyntaxError, ValueError):
+    except (SyntaxError, ValueError, Exception):
         return parse_generic(rel_path, "python", text, all_lines)
 
     total_lines = len(all_lines)
+    if total_lines == 0:
+        return []
+
     covered = [False] * (total_lines + 1)
     chunks: List[Chunk] = []
 
@@ -133,10 +157,13 @@ def parse_python(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
             dec_lines = [d.lineno for d in node.decorator_list if hasattr(d, "lineno")]
             start_l = min(dec_lines + [node.lineno])
             end_l = getattr(node, "end_lineno", node.lineno)
+
+            start_l = max(1, min(start_l, total_lines))
+            end_l = max(start_l, min(end_l, total_lines))
             symbol = node.name
             kind = "function"
 
-            for line_idx in range(start_l, min(end_l + 1, total_lines + 1)):
+            for line_idx in range(start_l, end_l + 1):
                 covered[line_idx] = True
 
             code = "\n".join(all_lines[start_l - 1 : end_l])
@@ -155,7 +182,7 @@ def parse_python(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
 
         elif isinstance(node, ast.ClassDef):
             dec_lines = [d.lineno for d in node.decorator_list if hasattr(d, "lineno")]
-            class_start = min(dec_lines + [node.lineno])
+            class_start = max(1, min(min(dec_lines + [node.lineno]), total_lines))
             class_name = node.name
 
             methods = [
@@ -168,13 +195,14 @@ def parse_python(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
                 first_m = methods[0]
                 m_dec_lines = [d.lineno for d in first_m.decorator_list if hasattr(d, "lineno")]
                 first_m_start = min(m_dec_lines + [first_m.lineno])
-                class_end = max(class_start, first_m_start - 1)
+                class_end = max(class_start, min(total_lines, first_m_start - 1))
                 while class_end > class_start and not all_lines[class_end - 1].strip():
                     class_end -= 1
             else:
-                class_end = getattr(node, "end_lineno", node.lineno)
+                raw_end = getattr(node, "end_lineno", node.lineno)
+                class_end = max(class_start, min(total_lines, raw_end))
 
-            for line_idx in range(class_start, min(class_end + 1, total_lines + 1)):
+            for line_idx in range(class_start, class_end + 1):
                 covered[line_idx] = True
 
             class_code = "\n".join(all_lines[class_start - 1 : class_end])
@@ -193,11 +221,11 @@ def parse_python(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
 
             for m in methods:
                 m_dec_lines = [d.lineno for d in m.decorator_list if hasattr(d, "lineno")]
-                m_start = min(m_dec_lines + [m.lineno])
-                m_end = getattr(m, "end_lineno", m.lineno)
+                m_start = max(1, min(min(m_dec_lines + [m.lineno]), total_lines))
+                m_end = max(m_start, min(getattr(m, "end_lineno", m.lineno), total_lines))
                 m_symbol = f"{class_name}.{m.name}"
 
-                for line_idx in range(m_start, min(m_end + 1, total_lines + 1)):
+                for line_idx in range(m_start, m_end + 1):
                     covered[line_idx] = True
 
                 m_code = "\n".join(all_lines[m_start - 1 : m_end])
@@ -252,9 +280,13 @@ def parse_python(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
     chunks.sort(key=lambda c: c.start_line)
     return chunks
 
+
 def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lines: List[str]) -> List[Chunk]:
     """Parse JavaScript and TypeScript source files using regex and brace matching."""
     total_lines = len(all_lines)
+    if total_lines == 0:
+        return []
+
     covered = [False] * (total_lines + 1)
     chunks: List[Chunk] = []
 
@@ -280,7 +312,7 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
     for match in class_pattern.finditer(text):
         symbol = match.group(1)
         start_char = match.start()
-        start_line = text[:start_char].count("\n") + 1
+        start_line = max(1, min(total_lines, text[:start_char].count("\n") + 1))
 
         brace_idx = text.find("{", start_char)
         if brace_idx == -1:
@@ -288,14 +320,38 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
 
         class_end_line = find_closing_brace_line(text, brace_idx, start_line, all_lines)
 
+        # Look for methods inside the class body
         body_start = brace_idx + 1
+        # Find closing brace char index for class body
+        close_brace_line = class_end_line
         body_end = len(text)
+        # Search for closing brace on or before class_end_line
         curr = body_start
         depth = 1
         while curr < len(text):
-            if text[curr] == "{":
+            ch = text[curr]
+            if ch in ('"', "'", "`"):
+                # Skip string literal
+                q = ch
+                curr += 1
+                while curr < len(text):
+                    if text[curr] == "\\":
+                        curr += 2
+                        continue
+                    if text[curr] == q:
+                        break
+                    curr += 1
+            elif ch == "/" and curr + 1 < len(text) and text[curr + 1] == "/":
+                eol = text.find("\n", curr + 2)
+                curr = eol if eol != -1 else len(text)
+                continue
+            elif ch == "/" and curr + 1 < len(text) and text[curr + 1] == "*":
+                eoc = text.find("*/", curr + 2)
+                curr = eoc + 2 if eoc != -1 else len(text)
+                continue
+            elif ch == "{":
                 depth += 1
-            elif text[curr] == "}":
+            elif ch == "}":
                 depth -= 1
                 if depth == 0:
                     body_end = curr
@@ -309,7 +365,7 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
             if m_name in ("if", "for", "while", "switch", "catch"):
                 continue
             m_start_char = body_start + m_match.start()
-            m_start_line = text[:m_start_char].count("\n") + 1
+            m_start_line = max(1, min(total_lines, text[:m_start_char].count("\n") + 1))
             m_brace_idx = text.find("{", m_start_char)
             if m_brace_idx != -1:
                 m_end_line = find_closing_brace_line(text, m_brace_idx, m_start_line, all_lines)
@@ -317,13 +373,13 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
 
         if methods_found:
             first_m_start = min(m[1] for m in methods_found)
-            header_end = max(start_line, first_m_start - 1)
+            header_end = max(start_line, min(total_lines, first_m_start - 1))
             while header_end > start_line and not all_lines[header_end - 1].strip():
                 header_end -= 1
         else:
             header_end = class_end_line
 
-        for idx in range(start_line, min(header_end + 1, total_lines + 1)):
+        for idx in range(start_line, header_end + 1):
             covered[idx] = True
         chunks.append(
             Chunk(
@@ -339,7 +395,9 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
         )
 
         for m_name, m_start, m_end in methods_found:
-            for idx in range(m_start, min(m_end + 1, total_lines + 1)):
+            m_start = max(1, min(total_lines, m_start))
+            m_end = max(m_start, min(total_lines, m_end))
+            for idx in range(m_start, m_end + 1):
                 covered[idx] = True
             chunks.append(
                 Chunk(
@@ -357,7 +415,7 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
     # 2. Detect Named Functions
     for match in fn_pattern.finditer(text):
         start_char = match.start()
-        start_line = text[:start_char].count("\n") + 1
+        start_line = max(1, min(total_lines, text[:start_char].count("\n") + 1))
         if covered[start_line]:
             continue
 
@@ -368,7 +426,8 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
         else:
             end_line = find_closing_brace_line(text, brace_idx, start_line, all_lines)
 
-        for idx in range(start_line, min(end_line + 1, total_lines + 1)):
+        end_line = max(start_line, min(total_lines, end_line))
+        for idx in range(start_line, end_line + 1):
             covered[idx] = True
 
         chunks.append(
@@ -388,7 +447,7 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
     for pat in (var_fn_pattern, var_named_fn_pattern):
         for match in pat.finditer(text):
             start_char = match.start()
-            start_line = text[:start_char].count("\n") + 1
+            start_line = max(1, min(total_lines, text[:start_char].count("\n") + 1))
             if covered[start_line]:
                 continue
 
@@ -404,7 +463,8 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
                     end_line += 1
                 end_line = min(end_line, total_lines)
 
-            for idx in range(start_line, min(end_line + 1, total_lines + 1)):
+            end_line = max(start_line, min(total_lines, end_line))
+            for idx in range(start_line, end_line + 1):
                 covered[idx] = True
 
             chunks.append(
@@ -458,6 +518,7 @@ def parse_javascript_typescript(rel_path: str, language: str, text: str, all_lin
     chunks.sort(key=lambda c: c.start_line)
     return chunks
 
+
 def parse_markdown(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk]:
     """Split markdown on headings (symbol = heading text, kind='block')."""
     total_lines = len(all_lines)
@@ -504,6 +565,8 @@ def parse_markdown(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk
         while end_l > start_l and not all_lines[end_l - 1].strip():
             end_l -= 1
 
+        start_l = max(1, min(total_lines, start_l))
+        end_l = max(start_l, min(total_lines, end_l))
         chunks.append(
             Chunk(
                 chunk_id=f"{rel_path}:{start_l}-{end_l}",
@@ -518,6 +581,7 @@ def parse_markdown(rel_path: str, text: str, all_lines: List[str]) -> List[Chunk
         )
 
     return chunks
+
 
 def parse_generic(rel_path: str, language: str, text: str, all_lines: List[str]) -> List[Chunk]:
     """
@@ -555,9 +619,11 @@ def parse_generic(rel_path: str, language: str, text: str, all_lines: List[str])
 
     return chunks
 
+
 def parse_other_code(rel_path: str, language: str, text: str, all_lines: List[str]) -> List[Chunk]:
     """Lightweight best-effort parsing for Go, Rust, Java, C/C++, C#, Ruby, PHP, etc."""
     return parse_generic(rel_path, language, text, all_lines)
+
 
 def parse_file(rel_path: str, language: str, text: str) -> List[Chunk]:
     """
