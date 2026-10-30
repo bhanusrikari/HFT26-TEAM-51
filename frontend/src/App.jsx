@@ -4,6 +4,8 @@ import { RepoPanel } from './components/RepoPanel';
 import { SearchBar } from './components/SearchBar';
 import { ExplanationPanel } from './components/ExplanationPanel';
 import { ResultsList } from './components/ResultsList';
+import AuthModal from './components/AuthModal';
+import BenchmarkModal from './components/BenchmarkModal';
 import {
   InitialState,
   ZeroResultsState,
@@ -15,19 +17,33 @@ import {
   indexGithub,
   getRepository,
   searchCode,
+  getMe,
+  logout,
+  listRepositories,
+  getSearchHistory,
   getInitialMockRepos,
   isMockEnabled,
 } from './api/client';
 
 export default function App() {
+  // Auth state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState(null);
+
+  // Benchmark modal
+  const [showBenchmark, setShowBenchmark] = useState(false);
+
   // Active repository state
   const [activeRepo, setActiveRepo] = useState(null);
   const [repoDetails, setRepoDetails] = useState(null);
   const [sessionRepos, setSessionRepos] = useState([]);
+  const [searchHistory, setSearchHistory] = useState([]);
 
   // Indexing status
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingStep, setIndexingStep] = useState('');
+  const pollTimerRef = useRef(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,18 +52,75 @@ export default function App() {
   const [searchResponse, setSearchResponse] = useState(null);
   const [searchError, setSearchError] = useState(null);
 
-  // Initialize with mock repositories if in mock mode for instant exploration
+  // Clean up polling on unmount
   useEffect(() => {
-    if (isMockEnabled()) {
-      const initial = getInitialMockRepos();
-      setSessionRepos(initial);
-      if (initial.length > 0) {
-        selectRepo(initial[0].repo_id, initial[0]);
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
       }
-    }
+    };
   }, []);
 
-  // Select active repository and load its detailed stats (languages & skipped breakdown)
+  // Check auth session on mount
+  useEffect(() => {
+    let active = true;
+    getMe()
+      .then((user) => {
+        if (active) {
+          setCurrentUser(user);
+          loadUserRepos();
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setCurrentUser(null);
+          if (isMockEnabled()) {
+            const initial = getInitialMockRepos();
+            setSessionRepos(initial);
+            if (initial.length > 0) {
+              selectRepo(initial[0].repo_id, initial[0]);
+            }
+          }
+        }
+      })
+      .finally(() => {
+        if (active) setAuthChecked(true);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  const handleAuthError = (err) => {
+    if (err?.status === 401) {
+      setCurrentUser(null);
+      setSessionExpiredMsg('Session expired. Please log in again.');
+      return true;
+    }
+    return false;
+  };
+
+  const loadUserRepos = async () => {
+    try {
+      const repos = await listRepositories();
+      setSessionRepos(repos || []);
+      if (repos && repos.length > 0 && !activeRepo) {
+        selectRepo(repos[0].repo_id, repos[0]);
+      }
+    } catch (err) {
+      handleAuthError(err);
+    }
+  };
+
+  const loadHistory = async (repoId) => {
+    try {
+      const history = await getSearchHistory(repoId);
+      setSearchHistory(history || []);
+    } catch (err) {
+      handleAuthError(err);
+    }
+  };
+
+  // Select active repository and load its detailed stats & history
   const selectRepo = async (repoId, fallbackRepo = null) => {
     setSearchError(null);
     setSearchResponse(null);
@@ -62,14 +135,41 @@ export default function App() {
       const details = await getRepository(repoId);
       setRepoDetails(details);
       setActiveRepo(details);
+      loadHistory(repoId);
     } catch (err) {
-      console.warn('Failed to load detailed repo stats:', err);
-      if (existing) {
-        setRepoDetails(existing);
-      } else {
-        setSearchError(err);
+      if (!handleAuthError(err)) {
+        if (existing) {
+          setRepoDetails(existing);
+        } else {
+          setSearchError(err);
+        }
       }
     }
+  };
+
+  // Poll repository status until ready or failed
+  const pollRepoStatus = (repoId) => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const repo = await getRepository(repoId);
+        setActiveRepo(repo);
+        setRepoDetails(repo);
+
+        if (repo.status === 'ready' || repo.status === 'failed') {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+          setIsIndexing(false);
+          setIndexingStep('');
+          loadUserRepos();
+        }
+      } catch (err) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+        setIsIndexing(false);
+      }
+    }, 1500);
   };
 
   // 1. Handle Upload ZIP
@@ -78,20 +178,24 @@ export default function App() {
     setSearchError(null);
     setIndexingStep('Uploading…');
 
-    const stepTimer = setTimeout(() => {
-      setIndexingStep('Indexing…');
-    }, 500);
-
     try {
       const res = await uploadZip(file);
       setSessionRepos((prev) => [res, ...prev.filter((r) => r.repo_id !== res.repo_id)]);
-      await selectRepo(res.repo_id, res);
+      setActiveRepo(res);
+      setRepoDetails(res);
+
+      if (res.status === 'queued' || res.status === 'cloning' || res.status === 'parsing') {
+        pollRepoStatus(res.repo_id);
+      } else {
+        setIsIndexing(false);
+        setIndexingStep('');
+        await selectRepo(res.repo_id, res);
+      }
     } catch (err) {
-      setSearchError(err);
-    } finally {
-      clearTimeout(stepTimer);
       setIsIndexing(false);
-      setIndexingStep('');
+      if (!handleAuthError(err)) {
+        setSearchError(err);
+      }
     }
   };
 
@@ -104,22 +208,31 @@ export default function App() {
     try {
       const res = await indexGithub(url);
       setSessionRepos((prev) => [res, ...prev.filter((r) => r.repo_id !== res.repo_id)]);
-      await selectRepo(res.repo_id, res);
+      setActiveRepo(res);
+      setRepoDetails(res);
+
+      if (res.status === 'queued' || res.status === 'cloning' || res.status === 'parsing') {
+        pollRepoStatus(res.repo_id);
+      } else {
+        setIsIndexing(false);
+        setIndexingStep('');
+        await selectRepo(res.repo_id, res);
+      }
     } catch (err) {
-      setSearchError(err);
-    } finally {
       setIsIndexing(false);
-      setIndexingStep('');
+      if (!handleAuthError(err)) {
+        setSearchError(err);
+      }
     }
   };
 
   // 3. Handle Search
-  const handleSearch = async ({ query, top_k, explain }) => {
+  const handleSearch = async ({ query, top_k = 10, explain = true, min_score = 0.35 }) => {
     if (!activeRepo) return;
     setIsSearching(true);
     setSearchError(null);
     setSearchQuery(query);
-    setSearchParams({ query, top_k, explain });
+    setSearchParams({ query, top_k, explain, min_score });
 
     try {
       const response = await searchCode({
@@ -127,46 +240,67 @@ export default function App() {
         query,
         top_k,
         explain,
+        min_score,
       });
       setSearchResponse(response);
+      loadHistory(activeRepo.repo_id);
     } catch (err) {
-      setSearchError(err);
-      setSearchResponse(null);
+      if (!handleAuthError(err)) {
+        setSearchError(err);
+        setSearchResponse(null);
+      }
     } finally {
       setIsSearching(false);
     }
   };
 
-  // 4. Citation click handler: jump smoothly to result card and pulse highlight
+  const handleShowLowRelevance = () => {
+    if (searchParams) {
+      handleSearch({
+        ...searchParams,
+        min_score: 0.0,
+      });
+    }
+  };
+
+  // 4. Citation click handler
   const handleCitationClick = (citationNumber) => {
     const cardEl = document.getElementById(`result-card-${citationNumber}`);
     if (cardEl) {
       cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       cardEl.classList.remove('citation-highlight');
-      // Trigger reflow to restart CSS animation
       void cardEl.offsetWidth;
       cardEl.classList.add('citation-highlight');
       cardEl.focus();
     }
   };
 
-  // 5. Retry current failed search
-  const handleRetrySearch = () => {
-    if (searchParams) {
-      handleSearch(searchParams);
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      setCurrentUser(null);
+      setActiveRepo(null);
+      setRepoDetails(null);
+      setSessionRepos([]);
+      setSearchResponse(null);
     }
   };
 
   const is404Error = searchError?.status === 404;
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-dark-text flex flex-col font-sans selection:bg-brand-blue/30 selection:text-white">
+    <div className="min-h-screen bg-[#0d1117] text-slate-200 flex flex-col font-sans selection:bg-indigo-500/30 selection:text-white">
       {/* Top Header */}
-      <Header />
+      <Header
+        user={currentUser}
+        onLogout={handleLogout}
+        onOpenBenchmark={() => setShowBenchmark(true)}
+      />
 
-      {/* Main layout: Sidebar + Central Search & Results */}
+      {/* Main layout */}
       <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row">
-        {/* Left Sidebar: Repository Source & Session Index list */}
+        {/* Left Sidebar */}
         <RepoPanel
           onUploadZip={handleUploadZip}
           onIndexGithub={handleIndexGithub}
@@ -175,7 +309,12 @@ export default function App() {
           activeRepo={activeRepo}
           repoDetails={repoDetails}
           sessionRepos={sessionRepos}
+          searchHistory={searchHistory}
           onSelectRepo={(id) => selectRepo(id)}
+          onSelectHistoryQuery={(q) => {
+            setSearchQuery(q);
+            handleSearch({ query: q, top_k: 10, explain: true });
+          }}
         />
 
         {/* Central Workspace */}
@@ -184,7 +323,7 @@ export default function App() {
           <SearchBar
             onSearch={handleSearch}
             isSearching={isSearching}
-            hasActiveRepo={!!activeRepo}
+            hasActiveRepo={!!activeRepo && repoDetails?.status === 'ready'}
             activeRepoName={activeRepo?.name}
             sampleQueries={repoDetails?.sampleQueries || activeRepo?.sampleQueries || []}
             externalQuery={searchQuery}
@@ -194,7 +333,7 @@ export default function App() {
           {searchError && (
             <ErrorBanner
               error={searchError}
-              onRetry={searchParams ? handleRetrySearch : null}
+              onRetry={searchParams ? () => handleSearch(searchParams) : null}
               is404={is404Error}
               onReindex={() => {
                 setActiveRepo(null);
@@ -203,28 +342,35 @@ export default function App() {
             />
           )}
 
-          {/* AI Explanation Panel (above the retrieved snippets) */}
+          {/* AI Explanation Panel */}
           <ExplanationPanel
             explanation={searchResponse?.explanation}
             explanationError={searchResponse?.explanation_error}
             isLoading={isSearching}
+            results={searchResponse?.results || []}
+            activeRepo={activeRepo}
             onCitationClick={handleCitationClick}
           />
 
           {/* Results display area */}
           {isSearching ? (
-            <ResultsSkeleton count={searchParams?.top_k || 3} />
+            <ResultsSkeleton count={searchParams?.top_k || 5} />
           ) : searchResponse ? (
             searchResponse.results && searchResponse.results.length > 0 ? (
               <ResultsList
                 query={searchResponse.query}
                 results={searchResponse.results}
                 resultCount={searchResponse.result_count}
+                lowRelevanceCount={searchResponse.low_relevance_count || 0}
+                onShowLowRelevance={handleShowLowRelevance}
               />
             ) : (
-              <ZeroResultsState
+              <ResultsList
                 query={searchResponse.query}
-                onClear={() => setSearchResponse(null)}
+                results={[]}
+                resultCount={0}
+                lowRelevanceCount={searchResponse.low_relevance_count || 0}
+                onShowLowRelevance={handleShowLowRelevance}
               />
             )
           ) : (
@@ -235,7 +381,7 @@ export default function App() {
                 setSearchQuery(q);
                 handleSearch({
                   query: q,
-                  top_k: 5,
+                  top_k: 10,
                   explain: true,
                 });
               }}
@@ -243,7 +389,23 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Auth Modal if unauthenticated */}
+      {authChecked && !currentUser && (
+        <AuthModal
+          sessionExpiredMessage={sessionExpiredMsg}
+          onAuthSuccess={(user) => {
+            setCurrentUser(user);
+            setSessionExpiredMsg(null);
+            loadUserRepos();
+          }}
+        />
+      )}
+
+      {/* Benchmark Modal */}
+      {showBenchmark && (
+        <BenchmarkModal onClose={() => setShowBenchmark(false)} />
+      )}
     </div>
   );
 }
-

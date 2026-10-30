@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { UploadZip } from './UploadZip';
 import { GithubForm } from './GithubForm';
 import { IndexStatus } from './IndexStatus';
+import RepoOverview from './RepoOverview';
 import {
   FolderArchive,
   Github,
   Database,
   ChevronDown,
   ChevronRight,
-  Layers,
   History,
   Check,
+  Search,
 } from 'lucide-react';
 
 export function RepoPanel({
@@ -21,20 +22,22 @@ export function RepoPanel({
   activeRepo,
   repoDetails,
   sessionRepos = [],
+  searchHistory = [],
   onSelectRepo,
+  onSelectHistoryQuery,
 }) {
-  const [activeTab, setActiveTab] = useState('zip'); // 'zip' | 'github'
+  const [activeTab, setActiveTab] = useState('zip');
   const [mobileOpen, setMobileOpen] = useState(true);
 
   return (
     <aside
-      className="w-full lg:w-80 shrink-0 bg-dark-surface/90 border-b lg:border-b-0 lg:border-r border-dark-border flex flex-col"
+      className="w-full lg:w-80 shrink-0 bg-slate-900/90 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col"
       aria-label="Repository Source Panel"
     >
       {/* Mobile collapse header */}
-      <div className="lg:hidden flex items-center justify-between p-4 border-b border-dark-border">
-        <div className="flex items-center gap-2 text-sm font-semibold text-dark-bright">
-          <Database className="w-4 h-4 text-brand-blue" />
+      <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-800">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+          <Database className="w-4 h-4 text-indigo-400" />
           <span>Repository Source</span>
           {activeRepo && (
             <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 ml-1 truncate max-w-[150px]">
@@ -45,7 +48,7 @@ export function RepoPanel({
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-1 rounded text-dark-muted hover:text-white"
+          className="p-1 rounded text-slate-400 hover:text-white"
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? 'Collapse source panel' : 'Expand source panel'}
         >
@@ -56,19 +59,19 @@ export function RepoPanel({
       <div className={`p-4 space-y-5 ${mobileOpen ? 'block' : 'hidden lg:block'}`}>
         {/* Panel header for desktop */}
         <div className="hidden lg:flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-dark-muted">
-            <Database className="w-3.5 h-3.5 text-brand-blue" />
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <Database className="w-3.5 h-3.5 text-indigo-400" />
             <span>Repository Index</span>
           </div>
           {sessionRepos.length > 0 && (
-            <span className="text-[11px] font-mono text-dark-muted">
-              {sessionRepos.length} indexed
+            <span className="text-[11px] font-mono text-slate-500">
+              {sessionRepos.length} repos
             </span>
           )}
         </div>
 
         {/* Source selection tabs */}
-        <div className="flex rounded-md bg-[#0d1117] p-1 border border-dark-border" role="tablist">
+        <div className="flex rounded-md bg-slate-950 p-1 border border-slate-800" role="tablist">
           <button
             type="button"
             role="tab"
@@ -77,8 +80,8 @@ export function RepoPanel({
             disabled={isIndexing}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium transition-all ${
               activeTab === 'zip'
-                ? 'bg-dark-subtle text-dark-bright shadow-sm border border-dark-border'
-                : 'text-dark-muted hover:text-dark-bright'
+                ? 'bg-slate-800 text-slate-100 shadow-sm border border-slate-700'
+                : 'text-slate-400 hover:text-slate-200'
             } disabled:opacity-50`}
           >
             <FolderArchive className="w-3.5 h-3.5" />
@@ -93,8 +96,8 @@ export function RepoPanel({
             disabled={isIndexing}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium transition-all ${
               activeTab === 'github'
-                ? 'bg-dark-subtle text-dark-bright shadow-sm border border-dark-border'
-                : 'text-dark-muted hover:text-dark-bright'
+                ? 'bg-slate-800 text-slate-100 shadow-sm border border-slate-700'
+                : 'text-slate-400 hover:text-slate-200'
             } disabled:opacity-50`}
           >
             <Github className="w-3.5 h-3.5" />
@@ -119,15 +122,20 @@ export function RepoPanel({
           repoDetails={repoDetails}
         />
 
-        {/* Session indexed repositories switcher */}
+        {/* Repo Overview Card */}
+        {activeRepo && repoDetails && repoDetails.status === 'ready' && (
+          <RepoOverview repo={repoDetails} />
+        )}
+
+        {/* User's indexed repositories */}
         {sessionRepos.length > 0 && (
-          <div className="pt-2 border-t border-dark-border/60 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-dark-muted">
-              <History className="w-3.5 h-3.5" />
-              <span>Session Repositories</span>
+          <div className="pt-2 border-t border-slate-800 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+              <Database className="w-3.5 h-3.5" />
+              <span>Your Repositories</span>
             </div>
 
-            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
               {sessionRepos.map((repo) => {
                 const isSelected = activeRepo?.repo_id === repo.repo_id;
                 return (
@@ -138,16 +146,18 @@ export function RepoPanel({
                     disabled={isIndexing}
                     className={`w-full text-left p-2 rounded-md text-xs font-mono flex items-center justify-between gap-2 border transition-all ${
                       isSelected
-                        ? 'bg-brand-blue/10 border-brand-blue/40 text-brand-hover font-semibold'
-                        : 'bg-[#0d1117]/60 border-dark-border/40 text-dark-muted hover:text-dark-bright hover:bg-dark-subtle'
+                        ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-300 font-semibold'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-850'
                     }`}
                   >
                     <span className="truncate">{repo.name}</span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-dark-muted">
-                        {repo.indexed_files}f
-                      </span>
-                      {isSelected && <Check className="w-3 h-3 text-brand-blue" />}
+                      {repo.indexed_files && (
+                        <span className="text-[10px] text-slate-500">
+                          {repo.indexed_files}f
+                        </span>
+                      )}
+                      {isSelected && <Check className="w-3 h-3 text-indigo-400" />}
                     </div>
                   </button>
                 );
@@ -155,8 +165,32 @@ export function RepoPanel({
             </div>
           </div>
         )}
+
+        {/* Search history for active repo */}
+        {searchHistory && searchHistory.length > 0 && (
+          <div className="pt-2 border-t border-slate-800 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+              <History className="w-3.5 h-3.5" />
+              <span>Search History</span>
+            </div>
+
+            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+              {searchHistory.slice(0, 10).map((item, idx) => (
+                <button
+                  key={item.id || idx}
+                  type="button"
+                  onClick={() => onSelectHistoryQuery && onSelectHistoryQuery(item.query)}
+                  className="w-full text-left p-1.5 rounded text-[11px] font-mono text-slate-300 hover:text-white bg-slate-950/40 hover:bg-slate-800 border border-slate-800/60 truncate flex items-center gap-1.5 transition-colors"
+                  title={`Run query: ${item.query}`}
+                >
+                  <Search className="w-3 h-3 text-slate-500 shrink-0" />
+                  <span className="truncate">{item.query}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
 }
-

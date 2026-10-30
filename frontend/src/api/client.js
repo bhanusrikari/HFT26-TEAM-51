@@ -1,21 +1,21 @@
 // HTTP API client for RepoLens backend
-// Implements all 5 frozen endpoints with seamless VITE_USE_MOCK support
+// Implements v1 + v2 contracts with seamless VITE_USE_MOCK support
 
 import {
   MOCK_REPOSITORIES,
+  MOCK_HISTORY,
+  MOCK_BENCHMARK,
+  getMockUser,
+  setMockUser,
   simulateLatency,
   getMockSearchResponse,
   setMockError,
   getMockError,
 } from './mock.js';
 
-// Base URL: relative "/api" by default (routed through Vite dev proxy) unless overridden
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
-
-// Mock mode: strictly defaults to false when unset (only "true" enables mock)
 const isMockActive = import.meta.env.VITE_USE_MOCK === 'true';
 
-// State listener for UI indicators
 const listeners = new Set();
 function notifyListeners() {
   listeners.forEach((fn) => fn(isMockActive, getMockError()));
@@ -40,10 +40,9 @@ export function getSimulatedError() {
   return getMockError();
 }
 
-// In-memory mock repositories store for current session
 const sessionMockRepos = { ...MOCK_REPOSITORIES };
+const sessionMockHistory = [...MOCK_HISTORY];
 
-// Standardized error handler that extracts backend {"detail": "..."}
 async function handleResponse(response) {
   if (response.ok) {
     return await response.json();
@@ -52,8 +51,8 @@ async function handleResponse(response) {
   try {
     const errorData = await response.json();
     if (errorData && errorData.detail) {
-      detailMessage = typeof errorData.detail === 'string' 
-        ? errorData.detail 
+      detailMessage = typeof errorData.detail === 'string'
+        ? errorData.detail
         : JSON.stringify(errorData.detail);
     }
   } catch {
@@ -67,18 +66,11 @@ async function handleResponse(response) {
 }
 
 /**
- * 1. Health check: GET /api/health
+ * Health check: GET /api/health
  */
 export async function checkHealth() {
   if (isMockActive) {
-    await simulateLatency();
-    const simErr = getMockError();
-    if (simErr === '502') {
-      const err = new Error('Upstream mock server failure');
-      err.status = 502;
-      err.detail = 'Upstream mock server failure';
-      throw err;
-    }
+    await simulateLatency(100, 200);
     return { status: 'ok' };
   }
 
@@ -90,233 +82,278 @@ export async function checkHealth() {
     return await handleResponse(res);
   } catch (err) {
     if (!err.detail) {
-      err.detail = 'Cannot connect to backend server at http://localhost:8000';
+      err.detail = 'Cannot connect to backend server';
     }
     throw err;
   }
 }
 
 /**
- * 2. Upload ZIP repository: POST /api/repositories/upload
- * multipart form field name: "file"
+ * Auth: POST /api/auth/signup
+ */
+export async function signup({ email, password }) {
+  if (isMockActive) {
+    await simulateLatency();
+    const user = { id: Date.now(), email, created_at: new Date().toISOString() };
+    setMockUser(user);
+    return user;
+  }
+
+  const res = await fetch(`${API_BASE}/auth/signup`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  return await handleResponse(res);
+}
+
+/**
+ * Auth: POST /api/auth/login
+ */
+export async function login({ email, password }) {
+  if (isMockActive) {
+    await simulateLatency();
+    const user = { id: 1, email, created_at: new Date().toISOString() };
+    setMockUser(user);
+    return user;
+  }
+
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  return await handleResponse(res);
+}
+
+/**
+ * Auth: POST /api/auth/logout
+ */
+export async function logout() {
+  if (isMockActive) {
+    await simulateLatency(100, 200);
+    setMockUser(null);
+    return { detail: 'Logged out' };
+  }
+
+  const res = await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  return await handleResponse(res);
+}
+
+/**
+ * Auth: GET /api/auth/me
+ */
+export async function getMe() {
+  if (isMockActive) {
+    await simulateLatency(100, 200);
+    const user = getMockUser();
+    if (!user) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      err.detail = 'Not authenticated';
+      throw err;
+    }
+    return user;
+  }
+
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  return await handleResponse(res);
+}
+
+/**
+ * List user repositories: GET /api/repositories
+ */
+export async function listRepositories() {
+  if (isMockActive) {
+    await simulateLatency(200, 400);
+    return Object.values(sessionMockRepos).map(r => ({
+      repo_id: r.repo_id,
+      name: r.name,
+      status: r.status || 'ready',
+      progress: r.progress || 1.0,
+      indexed_files: r.indexed_files,
+      indexed_chunks: r.indexed_chunks,
+      created_at: new Date().toISOString(),
+    }));
+  }
+
+  const res = await fetch(`${API_BASE}/repositories`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  return await handleResponse(res);
+}
+
+/**
+ * Upload ZIP: POST /api/repositories/upload
  */
 export async function uploadZip(file) {
   if (isMockActive) {
     await simulateLatency();
-    const simErr = getMockError();
-    if (simErr === '404') {
-      const err = new Error('Invalid archive structure');
-      err.status = 404;
-      err.detail = 'Invalid archive structure';
-      throw err;
-    }
-    if (simErr === '502') {
-      const err = new Error('Indexing engine crash (simulated 502)');
-      err.status = 502;
-      err.detail = 'Indexing engine crash (simulated 502)';
-      throw err;
-    }
-
     const cleanName = (file?.name || 'uploaded-project').replace(/\.zip$/i, '');
     const generatedId = `zip-${Date.now().toString(36)}`;
     const newRepo = {
       repo_id: generatedId,
       name: cleanName,
-      indexed_files: Math.floor(Math.random() * 30) + 25,
-      indexed_chunks: Math.floor(Math.random() * 90) + 80,
-      languages: {
-        python: 28,
-        typescript: 12,
-        markdown: 4,
-      },
-      skipped: {
-        excluded_dir: 10,
-        generated: 2,
-        too_large: 0,
-        binary: 1,
-        unsupported: 0,
-        limit: 0,
-      },
-      sampleQueries: [
-        'Where is authentication implemented?',
-        'Show repository indexing logic',
-        'How are search rankings calculated?',
-      ],
+      status: 'ready',
+      progress: 1.0,
+      indexed_files: 24,
+      indexed_chunks: 78,
+      languages: { python: 20, markdown: 4 },
+      skipped: { excluded_dir: 0, generated: 0, too_large: 0, binary: 0, unsupported: 0, limit: 0 },
     };
     sessionMockRepos[generatedId] = newRepo;
-    return {
-      repo_id: newRepo.repo_id,
-      name: newRepo.name,
-      indexed_files: newRepo.indexed_files,
-      indexed_chunks: newRepo.indexed_chunks,
-    };
+    return { repo_id: generatedId, status: 'ready', name: cleanName, indexed_files: 24, indexed_chunks: 78 };
   }
 
   const formData = new FormData();
   formData.append('file', file);
 
-  try {
-    const res = await fetch(`${API_BASE}/repositories/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    return await handleResponse(res);
-  } catch (err) {
-    if (!err.detail) {
-      err.detail = err.message || 'Failed to upload ZIP repository';
-    }
-    throw err;
-  }
+  const res = await fetch(`${API_BASE}/repositories/upload`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  return await handleResponse(res);
 }
 
 /**
- * 3. Index GitHub repository: POST /api/repositories/github
- * body: {"url": "https://github.com/owner/repo"}
+ * Index GitHub: POST /api/repositories/github
  */
 export async function indexGithub(url) {
   if (isMockActive) {
     await simulateLatency();
-    const simErr = getMockError();
-    if (simErr === '502') {
-      const err = new Error('GitHub API rate limit exceeded or upstream failure');
-      err.status = 502;
-      err.detail = 'GitHub API rate limit exceeded or upstream failure';
-      throw err;
-    }
-
     const match = url.match(/github\.com\/([^/]+)\/([^/#?]+)/i);
     const repoName = match ? match[2].replace(/\.git$/i, '') : 'github-repo';
     const generatedId = `gh-${Date.now().toString(36)}`;
     const newRepo = {
       repo_id: generatedId,
       name: repoName,
-      indexed_files: Math.floor(Math.random() * 40) + 30,
-      indexed_chunks: Math.floor(Math.random() * 120) + 90,
-      languages: {
-        python: 34,
-        json: 6,
-        markdown: 5,
-      },
-      skipped: {
-        excluded_dir: 12,
-        generated: 1,
-        too_large: 0,
-        binary: 2,
-        unsupported: 0,
-        limit: 0,
-      },
-      sampleQueries: [
-        'Where is authentication implemented?',
-        'How are search rankings calculated?',
-        'Where is the API router defined?',
-      ],
+      status: 'ready',
+      progress: 1.0,
+      indexed_files: 30,
+      indexed_chunks: 95,
+      languages: { python: 25, json: 5 },
+      skipped: { excluded_dir: 0, generated: 0, too_large: 0, binary: 0, unsupported: 0, limit: 0 },
     };
     sessionMockRepos[generatedId] = newRepo;
-    return {
-      repo_id: newRepo.repo_id,
-      name: newRepo.name,
-      indexed_files: newRepo.indexed_files,
-      indexed_chunks: newRepo.indexed_chunks,
-    };
+    return { repo_id: generatedId, status: 'ready', name: repoName, indexed_files: 30, indexed_chunks: 95 };
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/repositories/github`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ url }),
-    });
-    return await handleResponse(res);
-  } catch (err) {
-    if (!err.detail) {
-      err.detail = err.message || 'Failed to index GitHub repository';
-    }
-    throw err;
-  }
+  const res = await fetch(`${API_BASE}/repositories/github`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  return await handleResponse(res);
 }
 
 /**
- * 4. Get Repository details: GET /api/repositories/{repo_id}
+ * Get Repository: GET /api/repositories/{id}
  */
 export async function getRepository(repoId) {
   if (isMockActive) {
-    await simulateLatency();
-    const simErr = getMockError();
-    if (simErr === '404' || !sessionMockRepos[repoId]) {
+    await simulateLatency(150, 300);
+    const repo = sessionMockRepos[repoId];
+    if (!repo) {
       const err = new Error('Repository not found');
       err.status = 404;
       err.detail = 'Repository not found';
       throw err;
     }
-    const repo = sessionMockRepos[repoId];
-    return {
-      repo_id: repo.repo_id,
-      name: repo.name,
-      indexed_files: repo.indexed_files,
-      indexed_chunks: repo.indexed_chunks,
-      languages: repo.languages || {},
-      skipped: repo.skipped || {
-        excluded_dir: 0,
-        generated: 0,
-        too_large: 0,
-        binary: 0,
-        unsupported: 0,
-        limit: 0,
-      },
-    };
+    return repo;
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/repositories/${encodeURIComponent(repoId)}`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    return await handleResponse(res);
-  } catch (err) {
-    if (!err.detail) {
-      err.detail = err.message || 'Failed to fetch repository details';
-    }
-    throw err;
-  }
+  const res = await fetch(`${API_BASE}/repositories/${encodeURIComponent(repoId)}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  return await handleResponse(res);
 }
 
 /**
- * 5. Search Code: POST /api/search
- * body: {"repo_id": "...", "query": "...", "top_k": 5, "explain": true}
+ * Search: POST /api/search
  */
-export async function searchCode({ repo_id, query, top_k = 5, explain = true }) {
+export async function searchCode({ repo_id, query, top_k = 10, explain = true, min_score = 0.35 }) {
   if (isMockActive) {
     await simulateLatency();
-    return getMockSearchResponse(repo_id, query, top_k, explain);
+    const resp = getMockSearchResponse(repo_id, query, top_k, explain, min_score);
+    sessionMockHistory.unshift({
+      id: Date.now(),
+      repo_id,
+      query,
+      result_count: resp.result_count,
+      timestamp: new Date().toISOString(),
+    });
+    return resp;
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        repo_id,
-        query,
-        top_k: Number(top_k),
-        explain: Boolean(explain),
-      }),
-    });
-    return await handleResponse(res);
-  } catch (err) {
-    if (!err.detail) {
-      err.detail = err.message || 'Search request failed';
-    }
-    throw err;
-  }
+  const res = await fetch(`${API_BASE}/search`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      repo_id,
+      query,
+      top_k: Number(top_k),
+      explain: Boolean(explain),
+      min_score: Number(min_score),
+    }),
+  });
+  return await handleResponse(res);
 }
 
-// Helper to get initial mock repositories for the UI list
+/**
+ * Search History: GET /api/history?repo_id=...
+ */
+export async function getSearchHistory(repoId = null) {
+  if (isMockActive) {
+    await simulateLatency(100, 200);
+    if (repoId) {
+      return sessionMockHistory.filter(h => h.repo_id === repoId);
+    }
+    return sessionMockHistory;
+  }
+
+  const url = repoId ? `${API_BASE}/history?repo_id=${encodeURIComponent(repoId)}` : `${API_BASE}/history`;
+  const res = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  return await handleResponse(res);
+}
+
+/**
+ * Benchmark: GET /api/benchmark
+ */
+export async function getBenchmark() {
+  if (isMockActive) {
+    await simulateLatency(200, 300);
+    return MOCK_BENCHMARK;
+  }
+
+  const res = await fetch(`${API_BASE}/benchmark`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  return await handleResponse(res);
+}
+
 export function getInitialMockRepos() {
   return Object.values(MOCK_REPOSITORIES);
 }
