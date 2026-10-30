@@ -19,7 +19,7 @@ from . import database as db
 
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY", "repolens-insecure-secret-key-32-chars-minimum-prod")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_SECONDS = int(os.getenv("TOKEN_EXPIRE_SECONDS", str(7 * 24 * 3600)))  # 7 days
 COOKIE_NAME = "repolens_session"

@@ -40,6 +40,7 @@ from .auth import (
     signup_handler,
 )
 from .ingestion import indexer
+from .ingestion.sources import parse_github_url
 from .retrieval.search import get_engine
 from .ai.explainer import explain as explain_fn
 
@@ -69,9 +70,9 @@ class GithubReq(BaseModel):
 class SearchReq(BaseModel):
     repo_id: str
     query: str
-    top_k: int = 5
+    top_k: int = 10
     explain: bool = True
-    min_score: float = 0.35
+    min_score: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -132,22 +133,21 @@ async def list_repositories(current_user: dict = Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/repositories/upload", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/repositories/upload")
 async def upload(
     background_tasks: BackgroundTasks,
     request: Request,
+    response: Response,
     file: UploadFile = File(...),
     current_user: Optional[dict] = Depends(optional_current_user),
 ):
     if not (file.filename or "").lower().endswith(".zip"):
         raise HTTPException(400, "Please upload a .zip file")
 
-    # Read body to enforce size limit before saving
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, f"File exceeds {MAX_UPLOAD_BYTES // (1024*1024)} MB limit")
 
-    # Save to temp file (the background task will clean it up)
     tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
     tmp.write(content)
     tmp.flush()
@@ -156,19 +156,15 @@ async def upload(
     repo_id = uuid.uuid4().hex[:8]
     name = os.path.splitext(file.filename)[0]
 
-    # If authenticated, persist metadata so user can poll status
     user_id = current_user["id"] if current_user else None
     if user_id:
+        response.status_code = status.HTTP_202_ACCEPTED
         await db.create_repo(repo_id, user_id, name)
         background_tasks.add_task(bg_tasks.run_zip_indexing, repo_id, tmp.name, name, user_id)
         return {"repo_id": repo_id, "status": "queued"}
     else:
-        # Anonymous: index synchronously (v1 compat) but still in BG so we
-        # return 202; client must poll GET /api/repositories/{id}
-        # For anonymous we do a best-effort sync index and save in-memory.
-        # Register a pseudo-db entry so polling works.
-        # We use user_id=0 sentinel (no FK since no row in users table).
-        # Simple approach: just do it sync for anonymous users.
+        # Anonymous (v1 compatibility): synchronous indexing, return 200
+        response.status_code = status.HTTP_200_OK
         try:
             idx = indexer.index_zip(tmp.name, name=name)
             idx.repo_id = repo_id
@@ -180,14 +176,11 @@ async def upload(
                 os.unlink(tmp.name)
             except OSError:
                 pass
-        from collections import Counter
-        languages = dict(Counter(f.language for f in idx.files))
         return {
             "repo_id": repo_id,
             "name": idx.name,
             "indexed_files": len(idx.files),
             "indexed_chunks": len(idx.chunks),
-            "status": "ready",
         }
 
 
@@ -196,49 +189,41 @@ async def upload(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/repositories/github", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/repositories/github")
 async def github(
     req: GithubReq,
+    response: Response,
     background_tasks: BackgroundTasks,
     current_user: Optional[dict] = Depends(optional_current_user),
 ):
     repo_id = uuid.uuid4().hex[:8]
 
+    try:
+        _, repo_name, _ = parse_github_url(req.url)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     user_id = current_user["id"] if current_user else None
     if user_id:
-        # Quick URL validation before accepting
-        from .ingestion.sources import parse_github_url
-        try:
-            parse_github_url(req.url)
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-
-        # Extract repo name for display
-        _, repo_name, _ = __import__(
-            "backend.app.ingestion.sources", fromlist=["parse_github_url"]
-        ).parse_github_url(req.url) if False else (None, req.url.rstrip("/").split("/")[-1].removesuffix(".git"), None)
-
+        response.status_code = status.HTTP_202_ACCEPTED
         await db.create_repo(repo_id, user_id, repo_name)
         background_tasks.add_task(bg_tasks.run_github_indexing, repo_id, req.url, user_id)
         return {"repo_id": repo_id, "status": "queued"}
     else:
-        # Anonymous: sync (v1 compat)
-        from .ingestion import indexer as idx_mod
+        response.status_code = status.HTTP_200_OK
         try:
-            idx = idx_mod.index_github(req.url)
+            idx = indexer.index_github(req.url)
         except ValueError as e:
             raise HTTPException(400, str(e))
         except RuntimeError as e:
             raise HTTPException(502, str(e))
         idx.repo_id = repo_id
         store.save(idx)
-        from collections import Counter
         return {
             "repo_id": repo_id,
             "name": idx.name,
             "indexed_files": len(idx.files),
             "indexed_chunks": len(idx.chunks),
-            "status": "ready",
         }
 
 
@@ -267,13 +252,17 @@ async def get_repo(
     repo_id: str,
     current_user: Optional[dict] = Depends(optional_current_user),
 ):
-    # Try DB first (authenticated users)
+    # Try DB first
     if current_user:
         row = await db.get_repo(repo_id, user_id=current_user["id"])
         if row:
             return row
+        other = await db.get_repo(repo_id)
+        if other:
+            # Belongs to another user -> 404 per-user isolation
+            raise HTTPException(404, "Repository not found")
 
-    # Fall back to in-memory store (anonymous / v1)
+    # In-memory store (anonymous / v1)
     idx = store.get(repo_id)
     if idx:
         return _memory_summary(idx, detailed=True)
@@ -291,53 +280,55 @@ async def search(
     req: SearchReq,
     current_user: Optional[dict] = Depends(optional_current_user),
 ):
-    # Ownership check for authenticated users
     idx = None
     if current_user:
         row = await db.get_repo(req.repo_id, user_id=current_user["id"])
-        if row:
+        if not row:
+            other = await db.get_repo(req.repo_id)
+            if other:
+                raise HTTPException(404, "Repository not found")
+        else:
             if row.get("status") != "ready":
                 raise HTTPException(400, f"Repository is not ready (status: {row.get('status')})")
             idx = store.get(req.repo_id)
-        else:
-            # Could be anonymous-uploaded repo in memory
-            mem = store.get(req.repo_id)
-            if not mem:
-                raise HTTPException(404, "Repository not found")
-            idx = mem
-    else:
+
+    if not idx:
         idx = store.get(req.repo_id)
-        if not idx:
-            raise HTTPException(404, "Repository not found")
+
+    if not idx:
+        raise HTTPException(404, "Repository not found")
 
     if not req.query.strip():
         raise HTTPException(400, "Query is empty")
 
     top_k = max(1, min(req.top_k, 20))
-    min_score = max(0.0, min(1.0, req.min_score))
+    if req.min_score is not None:
+        min_score = max(0.0, min(1.0, req.min_score))
+    elif current_user:
+        min_score = 0.35
+    else:
+        min_score = 0.0
 
     engine = get_engine(idx)
-    # Fetch a larger pool so min_score filtering still leaves top_k results
-    pool_size = max(top_k * 3, 30)
-    all_results = engine.search(req.query, top_k=pool_size)
-
-    # Apply min_score cutoff
-    passing = [r for r in all_results if r.score >= min_score]
-    low_relevance_count = len(all_results) - len(passing)
-    results = passing[:top_k]
+    results, low_relevance_count = engine.search(
+        req.query,
+        top_k=top_k,
+        min_score=min_score,
+        return_counts=True,
+    )
 
     explanation, err = None, None
     if req.explain and results:
         explanation, err = await explain_fn(req.query, results)
 
-    # Save to search history if authenticated
+    # Save search history if authenticated
     if current_user:
         try:
             await db.save_history(
                 current_user["id"], req.repo_id, req.query, len(results)
             )
         except Exception:
-            pass  # Never fail a search just because history save fails
+            pass
 
     return {
         "query": req.query,
@@ -374,4 +365,3 @@ def get_benchmark():
     if result is None:
         raise HTTPException(404, "No benchmark result available. Run backend/scripts/benchmark.py first.")
     return result
-
