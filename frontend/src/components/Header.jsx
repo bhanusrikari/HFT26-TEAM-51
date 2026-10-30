@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { checkHealth, isMockEnabled } from '../api/client';
+import { checkHealth } from '../api/client';
 import { MockSimulator } from './MockSimulator';
-import { Code2, Activity, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Code2, Activity, BarChart3, LogOut, User } from 'lucide-react';
 
-export function Header() {
+export function Header({ user, onLogout, onOpenBenchmark }) {
   const [health, setHealth] = useState({
-    status: 'checking', // 'healthy' | 'unhealthy' | 'checking'
+    status: 'checking',
     lastChecked: null,
     message: 'Checking backend status…',
   });
@@ -29,7 +29,6 @@ export function Header() {
 
   useEffect(() => {
     pollHealth();
-    // Poll every 15s strictly adhering to the prompt requirement
     const interval = setInterval(pollHealth, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -39,7 +38,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Brand Wordmark & Tagline */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand-blue to-purple-600 text-[#0d1117] shadow">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-[#0d1117] shadow">
             <Code2 className="w-5 h-5 text-white" />
           </div>
 
@@ -48,21 +47,33 @@ export function Header() {
               <h1 className="text-base font-bold tracking-tight text-white font-sans">
                 RepoLens
               </h1>
-              <span className="hidden xs:inline-block px-1.5 py-0.2 rounded text-[10px] font-mono bg-dark-subtle text-dark-muted border border-dark-border">
+              <span className="hidden xs:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
                 Team CodeRed
               </span>
             </div>
-            <p className="text-[11px] text-dark-muted hidden sm:block tracking-wide">
+            <p className="text-[11px] text-slate-400 hidden sm:block tracking-wide">
               Evidence-based code exploration
             </p>
           </div>
         </div>
 
-        {/* Right side controls: Health indicator + Mock Simulator */}
+        {/* Right side controls */}
         <div className="flex items-center gap-3">
-          {/* Health indicator with tooltip */}
+          {/* Benchmark Button */}
+          {onOpenBenchmark && (
+            <button
+              onClick={onOpenBenchmark}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs transition-colors"
+              title="View benchmark evaluation"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline font-medium">Benchmark</span>
+            </button>
+          )}
+
+          {/* Health indicator */}
           <div
-            className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-dark-surface border border-dark-border text-xs group relative cursor-help"
+            className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-xs group relative cursor-help"
             role="status"
             aria-label={`Backend health: ${health.message}`}
           >
@@ -75,24 +86,42 @@ export function Header() {
                   : 'bg-amber-400 animate-pulse'
               }`}
             />
-            <span className="text-[11px] font-mono text-dark-text hidden md:inline">
+            <span className="text-[11px] font-mono text-slate-300 hidden md:inline">
               {health.status === 'healthy' ? 'API Online' : health.status === 'unhealthy' ? 'API Offline' : 'Connecting…'}
             </span>
 
-            {/* Tooltip on hover */}
-            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-50 w-64 p-2.5 rounded bg-dark-subtle border border-dark-border text-[11px] font-mono text-dark-text shadow-xl">
+            {/* Tooltip */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-50 w-64 p-2.5 rounded bg-slate-800 border border-slate-700 text-[11px] font-mono text-slate-200 shadow-xl">
               <div className="font-semibold text-white mb-1 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-brand-blue" />
+                <Activity className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Backend Health Status</span>
               </div>
-              <p className="text-dark-muted">{health.message}</p>
+              <p className="text-slate-400">{health.message}</p>
               {health.lastChecked && (
-                <p className="text-[10px] text-dark-muted/70 mt-1">
+                <p className="text-[10px] text-slate-500 mt-1">
                   Last checked: {health.lastChecked} (polls every 15s)
                 </p>
               )}
             </div>
           </div>
+
+          {/* User profile & Logout */}
+          {user && (
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-700">
+              <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-300 font-mono">
+                <User className="w-3.5 h-3.5 text-slate-400" />
+                <span className="truncate max-w-[140px]">{user.email}</span>
+              </div>
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-red-950/40 hover:text-red-300 hover:border-red-500/30 border border-slate-700 text-xs text-slate-300 transition-colors"
+                title="Log out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+          )}
 
           {/* Dev Mock Simulator */}
           <MockSimulator />
@@ -101,4 +130,3 @@ export function Header() {
     </header>
   );
 }
-

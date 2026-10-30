@@ -1,0 +1,162 @@
+{
+  "repo": "sample-repo",
+  "precision_at_5": 0.592,
+  "grep_precision_at_5": 0.433,
+  "index_time_seconds": 0.0072,
+  "file_count": 4,
+  "chunk_count": 19,
+  "queries": [
+    {
+      "query": "service handler",
+      "expected": [
+        "src/service.py"
+      ],
+      "repolens_top_files": [
+        "README.md",
+        "src/service.py",
+        "src/service.py",
+        "src/service.py"
+      ],
+      "repolens_precision": 0.75,
+      "grep_top_files": [
+        "README.md",
+        "src/service.py"
+      ],
+      "grep_precision": 0.5
+    },
+    {
+      "query": "render component",
+      "expected": [
+        "src/components/App.tsx"
+      ],
+      "repolens_top_files": [
+        "src/components/App.tsx",
+        "src/components/App.tsx",
+        "src/components/App.tsx"
+      ],
+      "repolens_precision": 1.0,
+      "grep_top_files": [],
+      "grep_precision": 0.0
+    },
+    {
+      "query": "formatDate",
+      "expected": [
+        "src/utils.js"
+      ],
+      "repolens_top_files": [
+        "src/utils.js",
+        "src/utils.js"
+      ],
+      "repolens_precision": 1.0,
+      "grep_top_files": [],
+      "grep_precision": 0.0
+    },
+    {
+      "query": "fetchData",
+      "expected": [
+        "src/service.py"
+      ],
+      "repolens_top_files": [
+        "src/service.py",
+        "src/components/App.tsx"
+      ],
+      "repolens_precision": 0.5,
+      "grep_top_files": [],
+      "grep_precision": 0.0
+    },
+    {
+      "query": "React component",
+      "expected": [
+        "src/components/App.tsx"
+      ],
+      "repolens_top_files": [
+        "src/components/App.tsx",
+        "src/components/App.tsx",
+        "src/components/App.tsx"
+      ],
+      "repolens_precision": 1.0,
+      "grep_top_files": [
+        "src/components/App.tsx"
+      ],
+      "grep_precision": 1.0
+    },
+    {
+      "query": "data processing",
+      "expected": [
+        "src/service.py"
+      ],
+      "repolens_top_files": [],
+      "repolens_precision": 0.0,
+      "grep_top_files": [],
+      "grep_precision": 0.0
+    },
+    {
+      "query": "calculate helper",
+      "expected": [
+        "src/utils.js"
+      ],
+      "repolens_top_files": [],
+      "repolens_precision": 0.0,
+      "grep_top_files": [
+        "src/utils.js"
+      ],
+      "grep_precision": 1.0
+    },
+    {
+      "query": "user interface button",
+      "expected": [
+        "src/components/App.tsx"
+      ],
+      "repolens_top_files": [
+        "src/components/App.tsx",
+        "src/components/App.tsx",
+        "src/service.py",
+        "src/service.py",
+        "src/service.py"
+      ],
+      "repolens_precision": 0.4,
+      "grep_top_files": [
+        "src/service.py",
+        "src/components/App.tsx"
+      ],
+      "grep_precision": 0.5
+    },
+    {
+      "query": "utility functions",
+      "expected": [
+        "src/utils.js"
+      ],
+      "repolens_top_files": [
+        "src/utils.js",
+        "src/utils.js",
+        "src/components/App.tsx"
+      ],
+      "repolens_precision": 0.67,
+      "grep_top_files": [
+        "src/utils.js"
+      ],
+      "grep_precision": 1.0
+    },
+    {
+      "query": "service status check",
+      "expected": [
+        "src/service.py"
+      ],
+      "repolens_top_files": [
+        "src/service.py",
+        "src/utils.js",
+        "README.md",
+        "src/service.py",
+        "src/service.py"
+      ],
+      "repolens_precision": 0.6,
+      "grep_top_files": [
+        "README.md",
+        "src/service.py",
+        "src/utils.js"
+      ],
+      "grep_precision": 0.33
+    }
+  ],
+  "timestamp": "2026-10-30T20:07:05.870727+00:00"
+}
