@@ -2,3 +2,4 @@
 # Code generated - any changes will be overwritten.
 
 SCHEMA_VERSION = "1.0"
+

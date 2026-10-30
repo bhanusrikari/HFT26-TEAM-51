@@ -33,3 +33,4 @@ class UserManager:
     async def verify_permissions(self, user_id: int) -> bool:
         """Verify user permissions asynchronously."""
         return user_id in self.users
+

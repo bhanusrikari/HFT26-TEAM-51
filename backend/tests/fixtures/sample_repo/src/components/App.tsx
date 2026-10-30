@@ -37,3 +37,4 @@ export async function fetchSessionAsync(token: string): Promise<boolean> {
 }
 
 export default App;
+
