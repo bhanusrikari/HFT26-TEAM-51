@@ -184,10 +184,11 @@ class SearchEngine:
         # Normalize lexical across candidates
         raw_lex_list = [c.lexical_raw for c in candidates]
         norm_lex_list = min_max_normalize(raw_lex_list)
+        all_same_lex = bool(raw_lex_list and raw_lex_list[0] > 0.0 and len(set(raw_lex_list)) == 1)
 
         for c, norm_lex in zip(candidates, norm_lex_list):
             c.lexical_norm = norm_lex
-            lex_effective = 1.0 if (norm_lex == 0.0 and c.lexical_raw > 0.0 and len(set(raw_lex_list)) == 1) else norm_lex
+            lex_effective = 1.0 if (norm_lex == 0.0 and all_same_lex) else norm_lex
             score = combine(
                 lexical=lex_effective,
                 symbol=c.symbol_score,
@@ -196,18 +197,17 @@ class SearchEngine:
             )
             c.final_score = min(1.0, max(0.0, score))
 
-        # Retrieve top candidate pool (30-50) without full sort — O(n log k) vs O(n log n)
-        pool_target = max(50, top_k * 5)
-        candidate_pool = heapq.nlargest(
-            min(pool_target, len(candidates)),
-            candidates,
+        # Sort descending by score; tie-break by shorter chunk, then path, then start_line
+        candidates.sort(
             key=lambda c: (
-                round(c.final_score, 6),
-                -(c.chunk.end_line - c.chunk.start_line + 1),
+                -round(c.final_score, 6),
+                (c.chunk.end_line - c.chunk.start_line + 1),
                 c.chunk.file_path,
                 c.chunk.start_line,
-            ),
+            )
         )
+        pool_target = max(50, top_k * 5)
+        candidate_pool = candidates[:pool_target]
 
         # Dedup: drop overlapping chunks (same file, overlapping lines).
         # Keep higher-scoring one (prefer smaller/more specific on ties).
