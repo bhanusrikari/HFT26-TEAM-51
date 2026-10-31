@@ -8,7 +8,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
   Hash,
 } from 'lucide-react';
 import { formatNumber } from '../lib/format';
@@ -37,24 +36,28 @@ export function IndexStatus({
   if (isIndexing) {
     return (
       <div
-        className="rounded-lg border border-brand-blue/40 bg-brand-blue/5 p-4 space-y-3"
+        className="rounded-lg border p-4 space-y-3"
+        style={{ borderColor: 'rgba(107,26,42,0.35)', background: 'rgba(107,26,42,0.05)' }}
         aria-live="polite"
       >
         <div className="flex items-center gap-3">
-          <Loader2 className="w-5 h-5 text-brand-blue animate-spin shrink-0" />
+          <Loader2 className="w-5 h-5 animate-spin shrink-0" style={{ color: '#6B1A2A' }} />
           <div className="space-y-0.5">
-            <span className="text-xs font-semibold text-brand-hover block">
+            <span className="text-xs font-semibold block" style={{ color: '#8B2A3C' }}>
               {indexingStep || 'Indexing in progress…'}
             </span>
-            <span className="text-[11px] text-dark-muted">
+            <span className="text-[11px] text-ink-muted">
               Parsing AST and creating searchable code chunks
             </span>
           </div>
         </div>
 
         {/* Progress bar shimmer */}
-        <div className="w-full bg-dark-subtle h-1.5 rounded-full overflow-hidden">
-          <div className="bg-brand-blue h-full w-2/3 rounded-full animate-pulse" />
+        <div className="w-full bg-cream-darker h-1.5 rounded-full overflow-hidden">
+          <div
+            className="h-full w-2/3 rounded-full animate-pulse"
+            style={{ background: '#6B1A2A' }}
+          />
         </div>
       </div>
     );
@@ -68,60 +71,60 @@ export function IndexStatus({
   const totalSkipped = Object.values(skipped).reduce((acc, v) => acc + (Number(v) || 0), 0);
 
   return (
-    <div className="rounded-lg border border-dark-border bg-dark-surface p-3.5 space-y-3 text-xs">
+    <div className="rounded-lg border border-cream-darker bg-cream-warm p-3.5 space-y-3 text-xs">
       {/* Title + Status */}
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-0.5 min-w-0">
           <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
             <h4
-              className="font-semibold text-dark-bright truncate font-mono text-xs"
+              className="font-semibold text-ink truncate font-mono text-xs"
               title={repo.name}
             >
               {repo.name}
             </h4>
           </div>
           {/* Repo ID with copy button */}
-          <div className="flex items-center gap-1 text-[11px] font-mono text-dark-muted">
-            <Hash className="w-3 h-3 text-dark-muted/60" />
+          <div className="flex items-center gap-1 text-[11px] font-mono text-ink-muted">
+            <Hash className="w-3 h-3 text-ink-faint" />
             <span className="truncate">{repo.repo_id}</span>
             <button
               type="button"
               onClick={() => handleCopyId(repo.repo_id)}
-              className="p-0.5 hover:text-dark-bright text-dark-muted/70 transition-colors"
+              className="p-0.5 hover:text-ink text-ink-faint transition-colors"
               title="Copy repo ID"
               aria-label="Copy repository ID"
             >
               {copiedId ? (
-                <Check className="w-3 h-3 text-emerald-400" />
+                <Check className="w-3 h-3 text-success" />
               ) : (
                 <Copy className="w-3 h-3" />
               )}
             </button>
           </div>
         </div>
-        <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 font-medium shrink-0">
+        <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-medium shrink-0 bg-success/10 text-success border border-success/30">
           INDEXED
         </span>
       </div>
 
       {/* Stats row: indexed files & chunks */}
-      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-dark-border/60">
-        <div className="p-2 rounded bg-[#0d1117] border border-dark-border/50 flex items-center gap-2">
-          <FileCode2 className="w-4 h-4 text-brand-blue shrink-0" />
+      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-cream-darker/60">
+        <div className="p-2 rounded bg-cream border border-cream-darker flex items-center gap-2">
+          <FileCode2 className="w-4 h-4 text-brand-burg shrink-0" />
           <div>
-            <div className="text-[10px] text-dark-muted">Files</div>
-            <div className="font-mono font-bold text-dark-bright text-xs">
+            <div className="text-[10px] text-ink-muted">Files</div>
+            <div className="font-mono font-bold text-ink text-xs">
               {formatNumber(repo.indexed_files)}
             </div>
           </div>
         </div>
 
-        <div className="p-2 rounded bg-[#0d1117] border border-dark-border/50 flex items-center gap-2">
-          <Layers className="w-4 h-4 text-purple-400 shrink-0" />
+        <div className="p-2 rounded bg-cream border border-cream-darker flex items-center gap-2">
+          <Layers className="w-4 h-4 text-brand-burgLight shrink-0" />
           <div>
-            <div className="text-[10px] text-dark-muted">Chunks</div>
-            <div className="font-mono font-bold text-dark-bright text-xs">
+            <div className="text-[10px] text-ink-muted">Chunks</div>
+            <div className="font-mono font-bold text-ink text-xs">
               {formatNumber(repo.indexed_chunks)}
             </div>
           </div>
@@ -131,17 +134,17 @@ export function IndexStatus({
       {/* Language breakdown chips */}
       {repo.languages && Object.keys(repo.languages).length > 0 && (
         <div className="space-y-1.5 pt-1">
-          <span className="text-[10px] font-medium text-dark-muted uppercase tracking-wider block">
+          <span className="text-[10px] font-medium text-ink-muted uppercase tracking-wider block">
             Languages
           </span>
           <div className="flex flex-wrap gap-1">
             {Object.entries(repo.languages).map(([lang, count]) => (
               <span
                 key={lang}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono bg-dark-subtle text-dark-text border border-dark-border/60"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono bg-cream-dark text-ink border border-cream-darker"
               >
                 <span>{lang}</span>
-                <span className="text-dark-muted text-[10px]">({count})</span>
+                <span className="text-ink-muted text-[10px]">({count})</span>
               </span>
             ))}
           </div>
@@ -150,11 +153,11 @@ export function IndexStatus({
 
       {/* Skipped files dropdown count */}
       {totalSkipped > 0 && (
-        <div className="pt-1 border-t border-dark-border/60">
+        <div className="pt-1 border-t border-cream-darker/60">
           <button
             type="button"
             onClick={() => setShowSkipped(!showSkipped)}
-            className="flex items-center justify-between w-full text-[11px] text-dark-muted hover:text-dark-bright transition-colors"
+            className="flex items-center justify-between w-full text-[11px] text-ink-muted hover:text-ink transition-colors"
           >
             <span>{totalSkipped} non-code files skipped</span>
             {showSkipped ? (
@@ -165,13 +168,13 @@ export function IndexStatus({
           </button>
 
           {showSkipped && (
-            <div className="mt-2 p-2 rounded bg-[#0d1117] border border-dark-border/40 space-y-1 text-[10px] font-mono text-dark-muted">
+            <div className="mt-2 p-2 rounded bg-cream border border-cream-darker/40 space-y-1 text-[10px] font-mono text-ink-muted">
               {Object.entries(skipped).map(([reason, count]) => {
                 if (count === 0) return null;
                 return (
                   <div key={reason} className="flex justify-between">
                     <span className="capitalize">{reason.replace('_', ' ')}:</span>
-                    <span className="text-dark-text font-bold">{count}</span>
+                    <span className="text-ink font-bold">{count}</span>
                   </div>
                 );
               })}
@@ -182,4 +185,3 @@ export function IndexStatus({
     </div>
   );
 }
-

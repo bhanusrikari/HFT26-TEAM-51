@@ -28,6 +28,22 @@ export function SearchBar({
     onSearch({ query: cleanQuery, top_k: topK, explain });
   };
 
+  const handleTopKSelect = (k) => {
+    setTopK(k);
+    const cleanQuery = query.trim();
+    if (hasActiveRepo && !isSearching && cleanQuery) {
+      onSearch({ query: cleanQuery, top_k: k, explain });
+    }
+  };
+
+  const handleExplainToggle = (checked) => {
+    setExplain(checked);
+    const cleanQuery = query.trim();
+    if (hasActiveRepo && !isSearching && cleanQuery) {
+      onSearch({ query: cleanQuery, top_k: topK, explain: checked });
+    }
+  };
+
   const handleChipClick = (sample) => {
     setQuery(sample);
     if (hasActiveRepo && !isSearching) {
@@ -40,11 +56,11 @@ export function SearchBar({
       {/* Search form */}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="relative flex items-center">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-dark-muted">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
             {isSearching ? (
-              <Loader2 className="w-5 h-5 text-brand-blue animate-spin" />
+              <Loader2 className="w-5 h-5 text-brand-burg animate-spin" />
             ) : (
-              <Search className="w-5 h-5 text-dark-muted" />
+              <Search className="w-5 h-5 text-ink-muted" />
             )}
           </div>
 
@@ -58,7 +74,8 @@ export function SearchBar({
                 ? `Ask about ${activeRepoName || 'this codebase'}… e.g. Where is authentication implemented?`
                 : 'Select or index a repository first to begin searching'
             }
-            className="w-full pl-11 pr-24 py-3 bg-dark-surface border border-dark-border rounded-lg text-sm text-dark-bright placeholder:text-dark-muted/60 focus:outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/30 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+            className="w-full pl-11 pr-24 py-3 bg-cream-warm border border-cream-darker rounded-lg text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-burg focus:ring-2 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+            style={{ '--tw-ring-color': 'rgba(107,26,42,0.2)' }}
             aria-label="Search codebase"
           />
 
@@ -67,7 +84,10 @@ export function SearchBar({
             <button
               type="submit"
               disabled={!hasActiveRepo || !query.trim() || isSearching}
-              className="h-8 px-3 rounded-md bg-brand-blue hover:bg-brand-hover text-[#0d1117] font-semibold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+              className="h-8 px-3 rounded-md font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm active:scale-95"
+              style={{ background: '#6B1A2A', color: '#FAF6F0' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = '#4A0E1C'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#6B1A2A'; }}
               aria-label="Submit search query"
             >
               <span>Search</span>
@@ -77,29 +97,39 @@ export function SearchBar({
         </div>
 
         {/* Search controls bar: top_k + Explain with AI toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-dark-muted">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-ink">
+          <div className="flex items-center gap-5">
             {/* top_k selector */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-dark-muted flex items-center gap-1">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Results:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-ink font-medium flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-brand-burg" />
+                <span>Show results:</span>
               </span>
-              <div className="inline-flex rounded-md bg-dark-surface border border-dark-border p-0.5" role="group">
-                {[3, 5, 10].map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setTopK(k)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium transition-colors ${
-                      topK === k
-                        ? 'bg-dark-subtle text-dark-bright shadow-xs'
-                        : 'text-dark-muted hover:text-dark-text'
-                    }`}
-                  >
-                    {k}
-                  </button>
-                ))}
+              <div className="inline-flex rounded-lg bg-cream-dark border border-cream-darker p-0.5 shadow-inner" role="group" aria-label="Number of results filter">
+                {[3, 5, 10, 15].map((k) => {
+                  const isSelected = topK === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => handleTopKSelect(k)}
+                      aria-pressed={isSelected}
+                      title={`Show top ${k} results`}
+                      className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold transition-all ${
+                        isSelected
+                          ? 'shadow-sm scale-105 z-10'
+                          : 'text-ink-muted hover:text-ink hover:bg-cream/60'
+                      }`}
+                      style={
+                        isSelected
+                          ? { background: '#6B1A2A', color: '#FAF6F0' }
+                          : {}
+                      }
+                    >
+                      {k}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -108,19 +138,29 @@ export function SearchBar({
               <input
                 type="checkbox"
                 checked={explain}
-                onChange={(e) => setExplain(e.target.checked)}
+                onChange={(e) => handleExplainToggle(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4 bg-dark-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600 relative border border-dark-border" />
-              <span className="text-xs font-medium text-dark-text group-hover:text-dark-bright flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-purple-400" />
+              <div
+                className={`w-9 h-5 rounded-full transition-colors relative border ${
+                  explain ? 'bg-brand-burg border-brand-burg' : 'bg-cream-darker border-cream-darker'
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-cream shadow-md transition-transform duration-200 ${
+                    explain ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
+              <span className="text-xs font-medium text-ink group-hover:text-brand-burg flex items-center gap-1.5 transition-colors">
+                <Sparkles className="w-3.5 h-3.5 text-brand-burg" />
                 <span>Explain with AI</span>
               </span>
             </label>
           </div>
 
           {!hasActiveRepo && (
-            <span className="text-amber-400/90 text-xs font-mono">
+            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-xs font-mono">
               ⚡ Index a repository to activate search
             </span>
           )}
@@ -130,14 +170,14 @@ export function SearchBar({
       {/* Example query chips */}
       {hasActiveRepo && sampleQueries && sampleQueries.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-[11px] text-dark-muted mr-1">Try:</span>
+          <span className="text-xs font-medium text-ink-muted mr-1">Suggested:</span>
           {sampleQueries.map((sample, idx) => (
             <button
               key={idx}
               type="button"
               disabled={isSearching}
               onClick={() => handleChipClick(sample)}
-              className="text-xs font-mono px-2.5 py-1 rounded-md bg-dark-surface hover:bg-dark-subtle text-dark-text hover:text-white border border-dark-border/80 transition-colors disabled:opacity-50"
+              className="text-xs font-mono px-2.5 py-1 rounded-md bg-cream-warm hover:bg-cream text-ink border border-cream-darker hover:border-brand-burg/40 transition-colors disabled:opacity-50 shadow-xs"
             >
               {sample}
             </button>
@@ -147,4 +187,3 @@ export function SearchBar({
     </div>
   );
 }
-

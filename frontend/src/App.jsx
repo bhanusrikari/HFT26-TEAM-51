@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { RepoPanel } from './components/RepoPanel';
 import { SearchBar } from './components/SearchBar';
 import { ExplanationPanel } from './components/ExplanationPanel';
 import { ResultsList } from './components/ResultsList';
+import { IndexingOverlay } from './components/IndexingOverlay';
 import {
   InitialState,
   ZeroResultsState,
@@ -15,15 +16,16 @@ import {
   indexGithub,
   getRepository,
   searchCode,
-  getInitialMockRepos,
-  isMockEnabled,
 } from './api/client';
+import { useSession } from './auth/useSession';
+import { LoginPage } from './auth/LoginPage';
 
 export default function App() {
+  const { user, sessionRepos, login, logout, addRepo } = useSession();
+
   // Active repository state
   const [activeRepo, setActiveRepo] = useState(null);
   const [repoDetails, setRepoDetails] = useState(null);
-  const [sessionRepos, setSessionRepos] = useState([]);
 
   // Indexing status
   const [isIndexing, setIsIndexing] = useState(false);
@@ -36,15 +38,15 @@ export default function App() {
   const [searchResponse, setSearchResponse] = useState(null);
   const [searchError, setSearchError] = useState(null);
 
-  // Initialize with mock repositories if in mock mode for instant exploration
+  // Subtle interactive cursor spotlight
+  const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
+
   useEffect(() => {
-    if (isMockEnabled()) {
-      const initial = getInitialMockRepos();
-      setSessionRepos(initial);
-      if (initial.length > 0) {
-        selectRepo(initial[0].repo_id, initial[0]);
-      }
-    }
+    const handleMouseMove = (e) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   // Select active repository and load its detailed stats (languages & skipped breakdown)
@@ -79,12 +81,12 @@ export default function App() {
     setIndexingStep('Uploading archive…');
 
     try {
-      // Small simulated step transitions for polished UX
-      setTimeout(() => setIndexingStep('Unpacking & indexing files…'), 400);
-      setTimeout(() => setIndexingStep('Extracting AST chunk symbols…'), 800);
+      // Step transitions for visual pipeline
+      setTimeout(() => setIndexingStep('Unpacking & indexing files…'), 500);
+      setTimeout(() => setIndexingStep('Extracting AST chunk symbols…'), 1100);
 
       const res = await uploadZip(file);
-      setSessionRepos((prev) => [res, ...prev.filter((r) => r.repo_id !== res.repo_id)]);
+      addRepo(res);
       await selectRepo(res.repo_id, res);
     } catch (err) {
       setSearchError(err);
@@ -101,11 +103,11 @@ export default function App() {
     setIndexingStep('Connecting to GitHub…');
 
     try {
-      setTimeout(() => setIndexingStep('Cloning tree & reading manifests…'), 400);
-      setTimeout(() => setIndexingStep('Chunking symbols and indexing…'), 800);
+      setTimeout(() => setIndexingStep('Cloning tree & reading manifests…'), 500);
+      setTimeout(() => setIndexingStep('Chunking symbols and indexing…'), 1100);
 
       const res = await indexGithub(url);
-      setSessionRepos((prev) => [res, ...prev.filter((r) => r.repo_id !== res.repo_id)]);
+      addRepo(res);
       await selectRepo(res.repo_id, res);
     } catch (err) {
       setSearchError(err);
@@ -161,13 +163,26 @@ export default function App() {
 
   const is404Error = searchError?.status === 404;
 
+  // Show login page if no user
+  if (!user) {
+    return <LoginPage onLogin={login} />;
+  }
+
   return (
-    <div className="min-h-screen bg-[#0d1117] text-dark-text flex flex-col font-sans selection:bg-brand-blue/30 selection:text-white">
+    <div className="relative min-h-screen bg-cream text-ink flex flex-col font-sans selection:bg-brand-burg/20 selection:text-ink overflow-x-hidden">
+      {/* Subtle cursor ambient spotlight */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0 transition-opacity duration-300 opacity-60"
+        style={{
+          background: `radial-gradient(650px circle at ${mousePos.x}px ${mousePos.y}px, rgba(107, 26, 42, 0.045), transparent 80%)`,
+        }}
+      />
+
       {/* Top Header */}
-      <Header />
+      <Header user={user} onLogout={logout} />
 
       {/* Main layout: Sidebar + Central Search & Results */}
-      <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row">
+      <div className="relative z-10 flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row">
         {/* Left Sidebar: Repository Source & Session Index list */}
         <RepoPanel
           onUploadZip={handleUploadZip}
@@ -237,7 +252,7 @@ export default function App() {
                 setSearchQuery(q);
                 handleSearch({
                   query: q,
-                  top_k: 5,
+                  top_k: searchParams?.top_k || 5,
                   explain: true,
                 });
               }}
@@ -245,7 +260,12 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Dedicated Immersive Loading Screen during Indexing & Chunking */}
+      <IndexingOverlay
+        isIndexing={isIndexing}
+        indexingStep={indexingStep}
+      />
     </div>
   );
 }
-

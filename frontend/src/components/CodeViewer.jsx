@@ -42,13 +42,13 @@ export function CodeViewer({
   };
 
   return (
-    <div className="relative rounded-md overflow-hidden border border-dark-border/80 bg-[#161b22] text-xs font-mono shadow-inner">
+    <div className="relative rounded-lg overflow-hidden border border-[#3B1F27] bg-[#160C0E] text-xs font-mono shadow-md">
       {/* Code viewer action bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#0d1117] border-b border-dark-border/80 text-dark-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-[#241318] border-b border-[#3B1F27] text-[#D4B8A5]">
         <div className="flex items-center gap-2 text-[11px] truncate">
-          <span className="text-dark-text font-medium">{langInfo.name}</span>
-          <span className="text-dark-border">•</span>
-          <span className="text-dark-muted">
+          <span className="text-[#FEFCFA] font-semibold">{langInfo.name}</span>
+          <span className="text-[#6E424D]">•</span>
+          <span className="text-[#D4B8A5]">
             Lines {startLine}–{endLine}
           </span>
         </div>
@@ -58,7 +58,7 @@ export function CodeViewer({
           <button
             type="button"
             onClick={handleCopyPathLines}
-            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-dark-subtle hover:text-dark-bright transition-colors text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            className="flex items-center gap-1 px-2 py-1 rounded bg-[#3B1F27]/60 hover:bg-[#4E2A34] text-[#E4D5C4] hover:text-white transition-colors text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-burg"
             title={`Copy snippet reference: ${pathLinesRef}`}
             aria-label="Copy file path and line numbers"
           >
@@ -79,7 +79,7 @@ export function CodeViewer({
           <button
             type="button"
             onClick={handleCopyCode}
-            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-dark-subtle hover:text-dark-bright transition-colors text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            className="flex items-center gap-1 px-2 py-1 rounded bg-[#3B1F27]/60 hover:bg-[#4E2A34] text-[#E4D5C4] hover:text-white transition-colors text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-burg"
             title="Copy code snippet to clipboard"
             aria-label="Copy code snippet"
           >
@@ -100,7 +100,7 @@ export function CodeViewer({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-dark-subtle hover:bg-dark-border text-dark-text hover:text-white transition-colors text-[11px] font-sans focus:outline-none focus:ring-1 focus:ring-brand-blue"
+            className="flex items-center gap-1 px-2 py-1 rounded bg-[#4A0E1C] hover:bg-[#6B1A2A] text-[#FAF6F0] transition-colors text-[11px] font-sans font-medium focus:outline-none focus:ring-1 focus:ring-brand-burg"
             aria-expanded={isExpanded}
             aria-label={isExpanded ? 'Collapse code snippet' : 'Expand full code snippet'}
           >
@@ -132,7 +132,7 @@ export function CodeViewer({
         >
           {({ style, tokens, getLineProps, getTokenProps }) => (
             <pre
-              style={{ ...style, backgroundColor: '#0d1117' }}
+              style={{ ...style, backgroundColor: '#160C0E' }}
               className="p-3 text-[12px] leading-relaxed font-mono min-w-full select-text"
             >
               {tokens.map((line, i) => {
@@ -141,10 +141,10 @@ export function CodeViewer({
                   <div
                     key={i}
                     {...getLineProps({ line })}
-                    className="table-row hover:bg-dark-subtle/50 transition-colors"
+                    className="table-row hover:bg-[#2A151C]/60 transition-colors"
                   >
                     <span
-                      className="table-cell text-right pr-4 pl-1 select-none text-dark-muted/60 font-mono text-[11px] w-12 border-r border-dark-border/40"
+                      className="table-cell text-right pr-4 pl-1 select-none text-[#8E6571] font-mono text-[11px] w-12 border-r border-[#3B1F27]"
                       aria-hidden="true"
                     >
                       {lineNumber}
@@ -166,10 +166,10 @@ export function CodeViewer({
       {!isExpanded && (
         <div
           onClick={() => setIsExpanded(true)}
-          className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#0d1117] via-[#0d1117]/80 to-transparent flex items-end justify-center pb-1 cursor-pointer group"
+          className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#160C0E] via-[#160C0E]/90 to-transparent flex items-end justify-center pb-1.5 cursor-pointer group"
           title="Click to expand full snippet"
         >
-          <span className="text-[11px] font-sans text-brand-blue group-hover:underline flex items-center gap-1 bg-[#161b22]/90 px-3 py-0.5 rounded-full border border-dark-border/60">
+          <span className="text-[11px] font-sans text-brand-burgLight group-hover:text-cream flex items-center gap-1 bg-[#241318]/95 px-3 py-0.5 rounded-full border border-[#4E2A34] shadow-sm">
             <ChevronDown className="w-3 h-3" /> Show more code
           </span>
         </div>
@@ -177,4 +177,3 @@ export function CodeViewer({
     </div>
   );
 }
-

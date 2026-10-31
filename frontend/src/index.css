@@ -3,7 +3,16 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+/* Base body with subtle GitHub-style technical dot pattern */
+body {
+  background-color: #FAF6F0;
+  background-image: radial-gradient(rgba(107, 26, 42, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: #1C0A0D;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Custom scrollbars */
@@ -12,14 +21,14 @@
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0d1117;
+  background: #F0E8DC;
 }
 ::-webkit-scrollbar-thumb {
-  background: #30363d;
+  background: #E4D5C4;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: #C4A882;
 }
 
 /* Respect user's motion preferences */
@@ -35,15 +44,15 @@
 /* Citation jump target highlight animation */
 @keyframes citation-pulse {
   0% {
-    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.8), 0 0 20px rgba(88, 166, 255, 0.4);
-    border-color: #58a6ff;
+    box-shadow: 0 0 0 3px rgba(107, 26, 42, 0.8), 0 0 20px rgba(107, 26, 42, 0.4);
+    border-color: #6B1A2A;
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(88, 166, 255, 1), 0 0 30px rgba(88, 166, 255, 0.6);
-    border-color: #79c0ff;
+    box-shadow: 0 0 0 4px rgba(107, 26, 42, 1), 0 0 30px rgba(107, 26, 42, 0.6);
+    border-color: #8B2A3C;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(88, 166, 255, 0);
+    box-shadow: 0 0 0 0 rgba(107, 26, 42, 0);
   }
 }
 
@@ -53,7 +62,44 @@
 
 /* Focus visible styling */
 :focus-visible {
-  outline: 2px solid #58a6ff;
+  outline: 2px solid #6B1A2A;
   outline-offset: 2px;
 }
 
+/* Smooth fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pipeline loading bar progress animation */
+@keyframes progressAnim {
+  0% {
+    width: 10%;
+  }
+  50% {
+    width: 75%;
+  }
+  100% {
+    width: 98%;
+  }
+}
+
+.animate-progress {
+  animation: progressAnim 1.8s ease-in-out infinite alternate;
+}
+
+/* Code interactive highlight micro-glow */
+.code-glow {
+  box-shadow: 0 0 20px -3px rgba(107, 26, 42, 0.15);
+}

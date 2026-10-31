@@ -14,16 +14,16 @@ export function ResultsList({
   return (
     <div className="space-y-4" role="feed" aria-busy="false">
       {/* Summary line */}
-      <div className="flex items-center justify-between gap-2 px-1 text-sm text-dark-muted font-sans">
+      <div className="flex items-center justify-between gap-2 px-1 text-sm text-ink-muted font-sans">
         <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-brand-blue" />
+          <Search className="w-4 h-4 text-brand-burg" />
           <span>
-            <strong className="text-dark-bright font-semibold">{resultCount}</strong>{' '}
-            {resultCount === 1 ? 'result' : 'results'} for{' '}
-            <span className="font-mono text-dark-bright">"{query}"</span>
+            <strong className="text-ink font-semibold">{resultCount}</strong>{' '}
+            {resultCount === 1 ? 'snippet' : 'snippets'} returned for{' '}
+            <span className="font-mono text-brand-burg font-semibold">"{query}"</span>
           </span>
         </div>
-        <span className="text-xs text-dark-muted hidden sm:inline">
+        <span className="text-xs text-ink-muted hidden sm:inline">
           Ranked by relevance score
         </span>
       </div>
@@ -45,4 +45,3 @@ export function ResultsList({
     </div>
   );
 }
-

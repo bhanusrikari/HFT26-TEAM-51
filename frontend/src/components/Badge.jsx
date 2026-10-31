@@ -31,7 +31,7 @@ export function MatchReasonChip({ reason }) {
   const info = MATCH_REASON_MAP[key] || {
     label: key,
     description: 'Match reason',
-    bg: 'bg-zinc-800 text-zinc-300 border-zinc-700',
+    bg: 'bg-cream-dark text-ink-muted border-cream-darker',
   };
 
   return (
@@ -43,4 +43,3 @@ export function MatchReasonChip({ reason }) {
     </span>
   );
 }
-

@@ -92,26 +92,26 @@ export function UploadZip({ onUpload, isIndexing }) {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !isIndexing && fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-all duration-200 ${
+        className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all duration-200 shadow-xs ${
           dragOver
-            ? 'border-brand-blue bg-brand-blue/10'
+            ? 'border-brand-burg bg-brand-burg/10 scale-[1.01]'
             : isIndexing
-            ? 'border-dark-border/40 bg-dark-surface/40 cursor-not-allowed opacity-60'
-            : 'border-dark-border hover:border-dark-muted/80 bg-[#0d1117]/80 hover:bg-[#161b22]'
+            ? 'border-cream-darker/70 bg-cream-dark/40 cursor-not-allowed opacity-60'
+            : 'border-cream-darker hover:border-brand-burg bg-cream-warm hover:bg-cream'
         }`}
         role="button"
         tabIndex={0}
         aria-label="Upload ZIP archive file dropzone"
       >
         <div className="flex flex-col items-center justify-center space-y-2">
-          <div className="p-2.5 rounded-full bg-dark-subtle text-brand-blue">
+          <div className="p-2.5 rounded-full bg-cream-dark border border-cream-darker text-brand-burg">
             <Upload className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-medium text-dark-bright">
-              <span className="text-brand-blue hover:underline">Click to browse</span> or drag and drop
+            <p className="text-xs font-semibold text-ink">
+              <span className="text-brand-burg hover:underline">Click to browse</span> or drag and drop
             </p>
-            <p className="text-[11px] text-dark-muted mt-0.5">
+            <p className="text-[11px] text-ink-muted mt-0.5">
               Only .zip archives up to 50 MB
             </p>
           </div>
@@ -120,13 +120,13 @@ export function UploadZip({ onUpload, isIndexing }) {
 
       {/* Selected file preview */}
       {selectedFile && (
-        <div className="flex items-center justify-between p-2.5 rounded-md bg-dark-subtle/80 border border-dark-border text-xs">
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-cream-warm border border-cream-darker text-xs shadow-xs">
           <div className="flex items-center gap-2 truncate">
-            <FileArchive className="w-4 h-4 text-brand-blue shrink-0" />
-            <span className="font-mono text-dark-bright truncate font-medium">
+            <FileArchive className="w-4 h-4 text-brand-burg shrink-0" />
+            <span className="font-mono text-ink truncate font-semibold">
               {selectedFile.name}
             </span>
-            <span className="text-dark-muted text-[11px] shrink-0 font-mono">
+            <span className="text-ink-muted text-[11px] shrink-0 font-mono">
               ({formatBytes(selectedFile.size)})
             </span>
           </div>
@@ -134,8 +134,9 @@ export function UploadZip({ onUpload, isIndexing }) {
             <button
               type="button"
               onClick={handleClear}
-              className="p-1 rounded hover:bg-dark-border text-dark-muted hover:text-dark-bright"
+              className="p-1 rounded-md hover:bg-cream-dark text-ink-muted hover:text-danger transition-colors"
               aria-label="Remove selected file"
+              title="Remove file"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -145,8 +146,8 @@ export function UploadZip({ onUpload, isIndexing }) {
 
       {/* Client validation error */}
       {validationError && (
-        <div className="flex items-center gap-1.5 p-2 rounded bg-red-950/30 border border-red-900/60 text-xs text-red-300">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+        <div className="flex items-center gap-1.5 p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
           <span>{validationError}</span>
         </div>
       )}
@@ -155,7 +156,10 @@ export function UploadZip({ onUpload, isIndexing }) {
       <button
         type="submit"
         disabled={!selectedFile || isIndexing}
-        className="w-full py-2 px-3 rounded-md text-xs font-semibold bg-brand-green hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow transition-colors flex items-center justify-center gap-1.5"
+        className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed shadow transition-all flex items-center justify-center gap-1.5 active:scale-98"
+        style={{ background: '#6B1A2A', color: '#FAF6F0' }}
+        onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = '#4A0E1C'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#6B1A2A'; }}
       >
         <FileArchive className="w-3.5 h-3.5" />
         <span>{isIndexing ? 'Indexing archive…' : 'Upload & index ZIP'}</span>
@@ -163,4 +167,3 @@ export function UploadZip({ onUpload, isIndexing }) {
     </form>
   );
 }
-
