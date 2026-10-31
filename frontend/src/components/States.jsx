@@ -14,16 +14,19 @@ import {
  */
 export function InitialState({ repoName, onSampleClick, sampleQueries = [] }) {
   return (
-    <div className="rounded-xl border border-dark-border/80 bg-dark-surface/60 p-8 sm:p-12 text-center space-y-6">
-      <div className="inline-flex p-3 rounded-2xl bg-brand-blue/10 border border-brand-blue/20 text-brand-blue">
-        <FolderSearch className="w-8 h-8" />
+    <div className="rounded-xl border border-cream-darker bg-cream-dark/60 p-8 sm:p-12 text-center space-y-6">
+      <div
+        className="inline-flex p-3 rounded-2xl border"
+        style={{ background: 'rgba(107,26,42,0.08)', borderColor: 'rgba(107,26,42,0.2)' }}
+      >
+        <FolderSearch className="w-8 h-8" style={{ color: '#6B1A2A' }} />
       </div>
 
       <div className="max-w-md mx-auto space-y-2">
-        <h3 className="text-lg font-semibold text-dark-bright">
+        <h3 className="text-lg font-semibold text-ink">
           {repoName ? `Explore "${repoName}"` : 'Select or index a repository'}
         </h3>
-        <p className="text-sm text-dark-muted leading-relaxed">
+        <p className="text-sm text-ink-muted leading-relaxed">
           Ask questions in natural language or enter exact symbols to inspect code snippets grounded in the index.
         </p>
       </div>
@@ -31,7 +34,7 @@ export function InitialState({ repoName, onSampleClick, sampleQueries = [] }) {
       {/* Suggested queries */}
       {sampleQueries && sampleQueries.length > 0 && (
         <div className="max-w-lg mx-auto pt-2 space-y-2">
-          <span className="text-xs font-medium text-dark-muted uppercase tracking-wider block">
+          <span className="text-xs font-medium text-ink-muted uppercase tracking-wider block">
             Suggested questions
           </span>
           <div className="flex flex-wrap justify-center gap-2">
@@ -40,7 +43,7 @@ export function InitialState({ repoName, onSampleClick, sampleQueries = [] }) {
                 key={idx}
                 type="button"
                 onClick={() => onSampleClick && onSampleClick(q)}
-                className="px-3 py-1.5 rounded-full text-xs font-mono bg-dark-subtle hover:bg-dark-border text-dark-text hover:text-white border border-dark-border/60 transition-colors text-left"
+                className="px-3 py-1.5 rounded-full text-xs font-mono bg-cream border border-cream-darker text-ink-muted hover:bg-cream-darker hover:text-ink transition-colors text-left"
               >
                 "{q}"
               </button>
@@ -51,24 +54,24 @@ export function InitialState({ repoName, onSampleClick, sampleQueries = [] }) {
 
       {/* 3 Steps guidance */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 max-w-2xl mx-auto text-left">
-        <div className="p-4 rounded-lg bg-[#0d1117] border border-dark-border/60 space-y-1.5">
-          <div className="text-xs font-mono font-bold text-brand-blue">01 / Index</div>
-          <div className="text-xs font-medium text-dark-bright">ZIP or GitHub</div>
-          <p className="text-[11px] text-dark-muted">
+        <div className="p-4 rounded-lg bg-cream border border-cream-darker space-y-1.5">
+          <div className="text-xs font-mono font-bold text-brand-burg">01 / Index</div>
+          <div className="text-xs font-medium text-ink">ZIP or GitHub</div>
+          <p className="text-[11px] text-ink-muted">
             Code is chunked by AST into functions, classes, and blocks.
           </p>
         </div>
-        <div className="p-4 rounded-lg bg-[#0d1117] border border-dark-border/60 space-y-1.5">
-          <div className="text-xs font-mono font-bold text-purple-400">02 / Search</div>
-          <div className="text-xs font-medium text-dark-bright">Hybrid Retrieval</div>
-          <p className="text-[11px] text-dark-muted">
+        <div className="p-4 rounded-lg bg-cream border border-cream-darker space-y-1.5">
+          <div className="text-xs font-mono font-bold text-brand-burgLight">02 / Search</div>
+          <div className="text-xs font-medium text-ink">Hybrid Retrieval</div>
+          <p className="text-[11px] text-ink-muted">
             Ranked with weighted lexical, symbol, path, and vector scoring.
           </p>
         </div>
-        <div className="p-4 rounded-lg bg-[#0d1117] border border-dark-border/60 space-y-1.5">
-          <div className="text-xs font-mono font-bold text-emerald-400">03 / Evidence</div>
-          <div className="text-xs font-medium text-dark-bright">Grounded AI</div>
-          <p className="text-[11px] text-dark-muted">
+        <div className="p-4 rounded-lg bg-cream border border-cream-darker space-y-1.5">
+          <div className="text-xs font-mono font-bold" style={{ color: '#B8860B' }}>03 / Evidence</div>
+          <div className="text-xs font-medium text-ink">Grounded AI</div>
+          <p className="text-[11px] text-ink-muted">
             LLM explanation with clickable citations jumping directly to line ranges.
           </p>
         </div>
@@ -82,27 +85,27 @@ export function InitialState({ repoName, onSampleClick, sampleQueries = [] }) {
  */
 export function ZeroResultsState({ query, onClear }) {
   return (
-    <div className="rounded-xl border border-dark-border/80 bg-dark-surface p-8 text-center space-y-4">
-      <div className="inline-flex p-3 rounded-full bg-dark-subtle text-dark-muted">
+    <div className="rounded-xl border border-cream-darker bg-cream-dark p-8 text-center space-y-4">
+      <div className="inline-flex p-3 rounded-full bg-cream text-ink-muted">
         <Search className="w-6 h-6" />
       </div>
       <div className="space-y-1 max-w-sm mx-auto">
-        <h4 className="text-base font-medium text-dark-bright">
+        <h4 className="text-base font-medium text-ink">
           No matching code found
         </h4>
-        <p className="text-sm text-dark-muted">
+        <p className="text-sm text-ink-muted">
           No code snippets matched your query for{' '}
-          <span className="font-mono text-dark-text">"{query}"</span>.
+          <span className="font-mono text-ink">"{query}"</span>.
         </p>
       </div>
-      <p className="text-xs text-dark-muted max-w-xs mx-auto">
+      <p className="text-xs text-ink-muted max-w-xs mx-auto">
         Try different keywords, a broader term, or a specific function or class name.
       </p>
       {onClear && (
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-dark-subtle hover:bg-dark-border text-dark-bright transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-cream hover:bg-cream-darker text-ink transition-colors border border-cream-darker"
         >
           Clear search
         </button>
@@ -117,24 +120,24 @@ export function ZeroResultsState({ query, onClear }) {
 export function ResultsSkeleton({ count = 3 }) {
   return (
     <div className="space-y-4 animate-pulse" aria-label="Loading search results">
-      <div className="h-4 w-48 bg-dark-subtle rounded" />
+      <div className="h-4 w-48 bg-cream-darker rounded" />
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="rounded-lg border border-dark-border bg-dark-surface p-4 space-y-4"
+          className="rounded-lg border border-cream-darker bg-cream-dark p-4 space-y-4"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-dark-subtle" />
-              <div className="h-4 w-40 bg-dark-subtle rounded" />
+              <div className="w-6 h-6 rounded-full bg-cream-darker" />
+              <div className="h-4 w-40 bg-cream-darker rounded" />
             </div>
-            <div className="h-4 w-20 bg-dark-subtle rounded" />
+            <div className="h-4 w-20 bg-cream-darker rounded" />
           </div>
           <div className="flex gap-2">
-            <div className="h-5 w-24 bg-dark-subtle rounded" />
-            <div className="h-5 w-16 bg-dark-subtle rounded" />
+            <div className="h-5 w-24 bg-cream-darker rounded" />
+            <div className="h-5 w-16 bg-cream-darker rounded" />
           </div>
-          <div className="h-28 bg-[#0d1117] rounded border border-dark-border/40" />
+          <div className="h-28 bg-[#1C0A0D]/10 rounded border border-cream-darker/40" />
         </div>
       ))}
     </div>
@@ -151,15 +154,15 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
     <div
       className={`rounded-lg p-4 border flex items-start justify-between gap-3 ${
         is404
-          ? 'bg-amber-950/20 border-amber-800/60 text-amber-200'
-          : 'bg-red-950/20 border-red-800/60 text-red-200'
+          ? 'bg-amber-50 border-amber-200 text-amber-800'
+          : 'bg-red-50 border-red-200 text-red-800'
       }`}
       role="alert"
     >
       <div className="flex items-start gap-3">
         <AlertTriangle
           className={`w-5 h-5 shrink-0 mt-0.5 ${
-            is404 ? 'text-amber-400' : 'text-brand-red'
+            is404 ? 'text-amber-500' : 'text-danger'
           }`}
         />
         <div className="space-y-1">
@@ -170,7 +173,7 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
             {error.detail || error.message || String(error)}
           </p>
           {is404 && (
-            <p className="text-xs text-amber-300/80 pt-1">
+            <p className="text-xs text-amber-700/80 pt-1">
               This repository ID is unknown or expired. Please re-index the archive or URL.
             </p>
           )}
@@ -182,7 +185,7 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
           <button
             type="button"
             onClick={onReindex}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-600/40 transition-colors"
+            className="px-3 py-1.5 rounded text-xs font-medium bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 transition-colors"
           >
             Re-index repository
           </button>
@@ -191,7 +194,7 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
           <button
             type="button"
             onClick={onRetry}
-            className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-dark-subtle hover:bg-dark-border text-dark-bright border border-dark-border transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium bg-cream hover:bg-cream-darker text-ink border border-cream-darker transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Retry</span>
@@ -201,4 +204,3 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
     </div>
   );
 }
-

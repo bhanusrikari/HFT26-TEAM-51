@@ -8,24 +8,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        dark: {
-          bg: '#0d1117',
-          surface: '#161b22',
-          subtle: '#21262d',
-          border: '#30363d',
-          muted: '#8b949e',
-          text: '#c9d1d9',
-          bright: '#f0f6fc',
-        },
         brand: {
-          blue: '#58a6ff',
-          hover: '#79c0ff',
-          green: '#238636',
-          greenLight: '#3fb950',
-          purple: '#a371f7',
-          amber: '#d29922',
-          red: '#f85149',
-        }
+          burg:      '#6B1A2A',
+          burgDark:  '#4A0E1C',
+          burgLight: '#8B2A3C',
+          gold:      '#B8860B',
+        },
+        cream: {
+          DEFAULT: '#FAF6F0',
+          dark:    '#F0E8DC',
+          darker:  '#E4D5C4',
+          warm:    '#FEFCFA',
+        },
+        ink: {
+          DEFAULT: '#1C0A0D',
+          muted:   '#6B4C52',
+          faint:   '#9B7A82',
+        },
+        success: '#2D6A4F',
+        danger:  '#C0392B',
       },
       fontFamily: {
         mono: ['SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', 'monospace'],
@@ -35,4 +36,3 @@ export default {
   },
   plugins: [],
 }
-
