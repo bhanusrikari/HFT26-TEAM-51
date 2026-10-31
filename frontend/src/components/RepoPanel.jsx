@@ -3,6 +3,7 @@ import { UploadZip } from './UploadZip';
 import { GithubForm } from './GithubForm';
 import { IndexStatus } from './IndexStatus';
 import { EvalMetrics } from './EvalMetrics';
+import { SessionHistory } from './SessionHistory';
 import {
   FolderArchive,
   Github,
@@ -22,6 +23,11 @@ export function RepoPanel({
   repoDetails,
   sessionRepos = [],
   onSelectRepo,
+  searchHistory = [],
+  currentQuery = '',
+  onSelectHistory,
+  onRemoveHistoryItem,
+  onClearHistory,
 }) {
   const [activeTab, setActiveTab] = useState('zip'); // 'zip' | 'github'
   const [mobileOpen, setMobileOpen] = useState(true);
@@ -123,6 +129,16 @@ export function RepoPanel({
         <EvalMetrics
           activeRepo={activeRepo}
           repoDetails={repoDetails}
+        />
+
+        {/* Session Search History (Claude Chats Style Dropdown) */}
+        <SessionHistory
+          activeRepo={activeRepo}
+          searchHistory={searchHistory}
+          currentQuery={currentQuery}
+          onSelectHistory={onSelectHistory}
+          onRemoveHistoryItem={onRemoveHistoryItem}
+          onClearHistory={onClearHistory}
         />
 
         {/* Session indexed repositories switcher */}

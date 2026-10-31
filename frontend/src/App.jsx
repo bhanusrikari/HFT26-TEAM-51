@@ -21,7 +21,17 @@ import { useSession } from './auth/useSession';
 import { LoginPage } from './auth/LoginPage';
 
 export default function App() {
-  const { user, sessionRepos, login, logout, addRepo } = useSession();
+  const {
+    user,
+    sessionRepos,
+    searchHistory,
+    login,
+    logout,
+    addRepo,
+    addSearchHistory,
+    removeSearchHistoryItem,
+    clearSearchHistory,
+  } = useSession();
 
   // Active repository state
   const [activeRepo, setActiveRepo] = useState(null);
@@ -117,7 +127,7 @@ export default function App() {
     }
   };
 
-  // 3. Handle Search
+  // 3. Handle Search & record in session history
   const handleSearch = async ({ query, top_k, explain }) => {
     if (!activeRepo) return;
     setIsSearching(true);
@@ -133,11 +143,46 @@ export default function App() {
         explain,
       });
       setSearchResponse(response);
+
+      // Save to Claude-style search history per session
+      addSearchHistory({
+        repo_id: activeRepo.repo_id,
+        repo_name: activeRepo.name,
+        query,
+        top_k,
+        explain,
+        result_count:
+          response.result_count !== undefined
+            ? response.result_count
+            : response.results?.length || 0,
+        response,
+      });
     } catch (err) {
       setSearchError(err);
       setSearchResponse(null);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Restore history search item instantly
+  const handleSelectHistory = async (item) => {
+    if (activeRepo?.repo_id !== item.repo_id) {
+      await selectRepo(item.repo_id);
+    }
+    setSearchQuery(item.query);
+    setSearchParams({ query: item.query, top_k: item.top_k, explain: item.explain });
+
+    // Instantly restore cached response if present, or re-run
+    if (item.response) {
+      setSearchResponse(item.response);
+      setSearchError(null);
+    } else {
+      handleSearch({
+        query: item.query,
+        top_k: item.top_k,
+        explain: item.explain,
+      });
     }
   };
 
@@ -183,7 +228,7 @@ export default function App() {
 
       {/* Main layout: Sidebar + Central Search & Results */}
       <div className="relative z-10 flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row">
-        {/* Left Sidebar: Repository Source & Session Index list */}
+        {/* Left Sidebar: Repository Source, Session Index & Search History */}
         <RepoPanel
           onUploadZip={handleUploadZip}
           onIndexGithub={handleIndexGithub}
@@ -193,6 +238,11 @@ export default function App() {
           repoDetails={repoDetails}
           sessionRepos={sessionRepos}
           onSelectRepo={(id) => selectRepo(id)}
+          searchHistory={searchHistory}
+          currentQuery={searchQuery}
+          onSelectHistory={handleSelectHistory}
+          onRemoveHistoryItem={removeSearchHistoryItem}
+          onClearHistory={clearSearchHistory}
         />
 
         {/* Central Workspace */}
