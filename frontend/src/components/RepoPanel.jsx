@@ -4,7 +4,7 @@ import { UploadZip } from './UploadZip';
 import { GithubForm } from './GithubForm';
 import { IndexStatus } from './IndexStatus';
 import { EvalMetrics } from './EvalMetrics';
-import RepoOverview from './RepoOverview';
+import { SessionHistory } from './SessionHistory';
 import {
   FolderArchive,
   Github,
@@ -26,7 +26,11 @@ export function RepoPanel({
   sessionRepos = [],
   searchHistory = [],
   onSelectRepo,
-  onSelectHistoryQuery,
+  searchHistory = [],
+  currentQuery = '',
+  onSelectHistory,
+  onRemoveHistoryItem,
+  onClearHistory,
 }) {
   const [activeTab, setActiveTab] = useState('zip');
   const [mobileOpen, setMobileOpen] = useState(true);
@@ -153,12 +157,17 @@ export function RepoPanel({
           repoDetails={repoDetails}
         />
 
-        {/* Repository Overview */}
-        {activeRepo && repoDetails && repoDetails.status === 'ready' && (
-          <RepoOverview repo={repoDetails} />
-        )}
+        {/* Session Search History (Claude Chats Style Dropdown) */}
+        <SessionHistory
+          activeRepo={activeRepo}
+          searchHistory={searchHistory}
+          currentQuery={currentQuery}
+          onSelectHistory={onSelectHistory}
+          onRemoveHistoryItem={onRemoveHistoryItem}
+          onClearHistory={onClearHistory}
+        />
 
-        {/* Session Repositories */}
+        {/* Session indexed repositories switcher */}
         {sessionRepos.length > 0 && (
           <div className="pt-2 border-t border-cream-darker/60 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">

@@ -30,10 +30,17 @@ import {
 } from './api/client';
 
 export default function App() {
-  // Authentication state
-  const [currentUser, setCurrentUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [sessionExpiredMsg, setSessionExpiredMsg] = useState(null);
+  const {
+    user,
+    sessionRepos,
+    searchHistory,
+    login,
+    logout,
+    addRepo,
+    addSearchHistory,
+    removeSearchHistoryItem,
+    clearSearchHistory,
+  } = useSession();
 
   // Benchmark modal
   const [showBenchmark, setShowBenchmark] = useState(false);
@@ -361,13 +368,8 @@ export default function App() {
     }
   };
 
-  // Handle code search
-  const handleSearch = async ({
-    query,
-    top_k = 10,
-    explain = true,
-    min_score = 0.35,
-  }) => {
+  // 3. Handle Search & record in session history
+  const handleSearch = async ({ query, top_k, explain }) => {
     if (!activeRepo) return;
 
     setIsSearching(true);
@@ -392,7 +394,19 @@ export default function App() {
 
       setSearchResponse(response);
 
-      loadHistory(activeRepo.repo_id);
+      // Save to Claude-style search history per session
+      addSearchHistory({
+        repo_id: activeRepo.repo_id,
+        repo_name: activeRepo.name,
+        query,
+        top_k,
+        explain,
+        result_count:
+          response.result_count !== undefined
+            ? response.result_count
+            : response.results?.length || 0,
+        response,
+      });
     } catch (err) {
       if (!handleAuthError(err)) {
         setSearchError(err);
@@ -403,17 +417,28 @@ export default function App() {
     }
   };
 
-  // Show low relevance results
-  const handleShowLowRelevance = () => {
-    if (searchParams) {
+  // Restore history search item instantly
+  const handleSelectHistory = async (item) => {
+    if (activeRepo?.repo_id !== item.repo_id) {
+      await selectRepo(item.repo_id);
+    }
+    setSearchQuery(item.query);
+    setSearchParams({ query: item.query, top_k: item.top_k, explain: item.explain });
+
+    // Instantly restore cached response if present, or re-run
+    if (item.response) {
+      setSearchResponse(item.response);
+      setSearchError(null);
+    } else {
       handleSearch({
-        ...searchParams,
-        min_score: 0.0,
+        query: item.query,
+        top_k: item.top_k,
+        explain: item.explain,
       });
     }
   };
 
-  // Citation click handler
+  // 4. Citation click handler: jump smoothly to result card and pulse highlight
   const handleCitationClick = (citationNumber) => {
     const cardEl = document.getElementById(
       `result-card-${citationNumber}`
@@ -482,8 +507,7 @@ export default function App() {
 
       {/* Main layout */}
       <div className="relative z-10 flex-1 max-w-7xl w-full mx-auto flex flex-col lg:flex-row">
-
-        {/* Repository sidebar */}
+        {/* Left Sidebar: Repository Source, Session Index & Search History */}
         <RepoPanel
           onUploadZip={handleUploadZip}
           onIndexGithub={handleIndexGithub}
@@ -494,15 +518,11 @@ export default function App() {
           sessionRepos={sessionRepos}
           searchHistory={searchHistory}
           onSelectRepo={(id) => selectRepo(id)}
-          onSelectHistoryQuery={(query) => {
-            setSearchQuery(query);
-
-            handleSearch({
-              query,
-              top_k: 10,
-              explain: true,
-            });
-          }}
+          searchHistory={searchHistory}
+          currentQuery={searchQuery}
+          onSelectHistory={handleSelectHistory}
+          onRemoveHistoryItem={removeSearchHistoryItem}
+          onClearHistory={clearSearchHistory}
         />
 
         {/* Central workspace */}
