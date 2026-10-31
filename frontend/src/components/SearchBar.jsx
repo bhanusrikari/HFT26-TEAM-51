@@ -1,5 +1,12 @@
+```jsx
 import React, { useState, useEffect } from 'react';
-import { Search, Sparkles, SlidersHorizontal, Loader2, ArrowRight } from 'lucide-react';
+import {
+  Search,
+  Sparkles,
+  SlidersHorizontal,
+  Loader2,
+  ArrowRight,
+} from 'lucide-react';
 
 export function SearchBar({
   onSearch,
@@ -10,10 +17,10 @@ export function SearchBar({
   externalQuery,
 }) {
   const [query, setQuery] = useState('');
-  const [topK, setTopK] = useState(5);
+  const [topK, setTopK] = useState(10);
   const [explain, setExplain] = useState(true);
 
-  // Sync when external query chip is clicked
+  // Sync when an external query or history item is selected
   useEffect(() => {
     if (externalQuery !== undefined && externalQuery !== null) {
       setQuery(externalQuery);
@@ -22,15 +29,20 @@ export function SearchBar({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
     if (!hasActiveRepo || isSearching) return;
+
     const cleanQuery = query.trim();
     if (!cleanQuery) return;
+
     onSearch({ query: cleanQuery, top_k: topK, explain });
   };
 
   const handleTopKSelect = (k) => {
     setTopK(k);
+
     const cleanQuery = query.trim();
+
     if (hasActiveRepo && !isSearching && cleanQuery) {
       onSearch({ query: cleanQuery, top_k: k, explain });
     }
@@ -38,7 +50,9 @@ export function SearchBar({
 
   const handleExplainToggle = (checked) => {
     setExplain(checked);
+
     const cleanQuery = query.trim();
+
     if (hasActiveRepo && !isSearching && cleanQuery) {
       onSearch({ query: cleanQuery, top_k: topK, explain: checked });
     }
@@ -46,6 +60,7 @@ export function SearchBar({
 
   const handleChipClick = (sample) => {
     setQuery(sample);
+
     if (hasActiveRepo && !isSearching) {
       onSearch({ query: sample, top_k: topK, explain });
     }
@@ -56,7 +71,7 @@ export function SearchBar({
       {/* Search form */}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="relative flex items-center">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-ink-muted">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             {isSearching ? (
               <Loader2 className="w-5 h-5 text-brand-burg animate-spin" />
             ) : (
@@ -79,15 +94,21 @@ export function SearchBar({
             aria-label="Search codebase"
           />
 
-          {/* Submit button inside input */}
+          {/* Submit button */}
           <div className="absolute inset-y-0 right-1.5 flex items-center">
             <button
               type="submit"
               disabled={!hasActiveRepo || !query.trim() || isSearching}
               className="h-8 px-3 rounded-md font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm active:scale-95"
               style={{ background: '#6B1A2A', color: '#FAF6F0' }}
-              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = '#4A0E1C'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#6B1A2A'; }}
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.disabled) {
+                  e.currentTarget.style.background = '#4A0E1C';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#6B1A2A';
+              }}
               aria-label="Submit search query"
             >
               <span>Search</span>
@@ -96,18 +117,24 @@ export function SearchBar({
           </div>
         </div>
 
-        {/* Search controls bar: top_k + Explain with AI toggle */}
+        {/* Search controls: result count and AI explanation */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-ink">
           <div className="flex items-center gap-5">
-            {/* top_k selector */}
+            {/* Result count selector */}
             <div className="flex items-center gap-2">
               <span className="text-ink font-medium flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-brand-burg" />
                 <span>Show results:</span>
               </span>
-              <div className="inline-flex rounded-lg bg-cream-dark border border-cream-darker p-0.5 shadow-inner" role="group" aria-label="Number of results filter">
+
+              <div
+                className="inline-flex rounded-lg bg-cream-dark border border-cream-darker p-0.5 shadow-inner"
+                role="group"
+                aria-label="Number of results filter"
+              >
                 {[3, 5, 10, 15].map((k) => {
                   const isSelected = topK === k;
+
                   return (
                     <button
                       key={k}
@@ -141,9 +168,12 @@ export function SearchBar({
                 onChange={(e) => handleExplainToggle(e.target.checked)}
                 className="sr-only peer"
               />
+
               <div
                 className={`w-9 h-5 rounded-full transition-colors relative border ${
-                  explain ? 'bg-brand-burg border-brand-burg' : 'bg-cream-darker border-cream-darker'
+                  explain
+                    ? 'bg-brand-burg border-brand-burg'
+                    : 'bg-cream-darker border-cream-darker'
                 }`}
               >
                 <div
@@ -152,6 +182,7 @@ export function SearchBar({
                   }`}
                 />
               </div>
+
               <span className="text-xs font-medium text-ink group-hover:text-brand-burg flex items-center gap-1.5 transition-colors">
                 <Sparkles className="w-3.5 h-3.5 text-brand-burg" />
                 <span>Explain with AI</span>
@@ -167,16 +198,19 @@ export function SearchBar({
         </div>
       </form>
 
-      {/* Example query chips */}
-      {hasActiveRepo && sampleQueries && sampleQueries.length > 0 && (
+      {/* Example query suggestions */}
+      {hasActiveRepo && sampleQueries.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-xs font-medium text-ink-muted mr-1">Suggested:</span>
+          <span className="text-xs font-medium text-ink-muted mr-1">
+            Suggested:
+          </span>
+
           {sampleQueries.map((sample, idx) => (
             <button
               key={idx}
               type="button"
-              disabled={isSearching}
               onClick={() => handleChipClick(sample)}
+              disabled={isSearching}
               className="text-xs font-mono px-2.5 py-1 rounded-md bg-cream-warm hover:bg-cream text-ink border border-cream-darker hover:border-brand-burg/40 transition-colors disabled:opacity-50 shadow-xs"
             >
               {sample}
@@ -187,3 +221,4 @@ export function SearchBar({
     </div>
   );
 }
+```

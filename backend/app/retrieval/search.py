@@ -1,9 +1,10 @@
+import heapq
 import logging
 import os
 import re
 from collections import Counter
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 from ..models import Chunk, RepoIndex, SearchResult
 from . import embeddings
@@ -99,21 +100,27 @@ class SearchEngine:
         self.bm25 = BM25(self.lexical_docs)
         self.chunk_embeddings = embeddings.get_chunk_embeddings(self.chunks)
 
-    def search(self, query: str, top_k: int = 5) -> list[SearchResult]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 10,
+        min_score: float = 0.0,
+        return_counts: bool = False,
+    ) -> Union[list[SearchResult], Tuple[list[SearchResult], int]]:
         if not query or not query.strip():
-            return []
+            return ([], 0) if return_counts else []
 
         raw_q_tokens = tokenize(query)
         if not raw_q_tokens:
-            return []
+            return ([], 0) if return_counts else []
 
         q_tokens = filter_query_tokens(raw_q_tokens)
         if not q_tokens:
-            return []
+            return ([], 0) if return_counts else []
 
         # If none of the query tokens exist in the corpus vocabulary, return []
         if not any(qt in self.corpus_vocab for qt in q_tokens):
-            return []
+            return ([], 0) if return_counts else []
 
         q_tokens_set = set(q_tokens)
         total_q = float(len(q_tokens))
@@ -172,7 +179,7 @@ class SearchEngine:
             )
 
         if not candidates:
-            return []
+            return ([], 0) if return_counts else []
 
         # Normalize lexical across candidates
         raw_lex_list = [c.lexical_raw for c in candidates]
@@ -180,63 +187,62 @@ class SearchEngine:
 
         for c, norm_lex in zip(candidates, norm_lex_list):
             c.lexical_norm = norm_lex
+            lex_effective = 1.0 if (norm_lex == 0.0 and c.lexical_raw > 0.0 and len(set(raw_lex_list)) == 1) else norm_lex
             score = combine(
-                lexical=c.lexical_norm,
+                lexical=lex_effective,
                 symbol=c.symbol_score,
                 path=c.path_score,
                 semantic=c.semantic_score,
             )
             c.final_score = min(1.0, max(0.0, score))
 
-        # Sort descending by score; tie-break by shorter chunk, then path
-        candidates.sort(
+        # Retrieve top candidate pool (30-50) without full sort — O(n log k) vs O(n log n)
+        pool_target = max(50, top_k * 5)
+        candidate_pool = heapq.nlargest(
+            min(pool_target, len(candidates)),
+            candidates,
             key=lambda c: (
-                -round(c.final_score, 6),
-                (c.chunk.end_line - c.chunk.start_line + 1),
+                round(c.final_score, 6),
+                -(c.chunk.end_line - c.chunk.start_line + 1),
                 c.chunk.file_path,
                 c.chunk.start_line,
-            )
+            ),
         )
 
-        # Dedup: if two results are from the same file and one range contains the other,
-        # keep the higher-scoring one (prefer the more specific/smaller on ties).
+        # Dedup: drop overlapping chunks (same file, overlapping lines).
+        # Keep higher-scoring one (prefer smaller/more specific on ties).
         deduped: list[_Candidate] = []
         file_accepted_ranges: dict[str, list[tuple[int, int]]] = {}
-        for cand in candidates:
+        for cand in candidate_pool:
             path = cand.chunk.file_path
             cand_s, cand_e = cand.chunk.start_line, cand.chunk.end_line
-            enclosed_or_enclosing = False
+            overlaps = False
             if path in file_accepted_ranges:
                 for acc_s, acc_e in file_accepted_ranges[path]:
-                    if (cand_s <= acc_s and cand_e >= acc_e) or (acc_s <= cand_s and acc_e >= cand_e):
-                        enclosed_or_enclosing = True
+                    if max(cand_s, acc_s) <= min(cand_e, acc_e):
+                        overlaps = True
                         break
-            if not enclosed_or_enclosing:
+            if not overlaps:
                 deduped.append(cand)
                 if path not in file_accepted_ranges:
                     file_accepted_ranges[path] = []
                 file_accepted_ranges[path].append((cand_s, cand_e))
-                if len(deduped) >= top_k * 5:
-                    break
 
-        # Diversity: at most 2 results per file unless that would leave fewer than top_k results.
+        # Diversity: max 3 chunks per file (capped at 2 when top_k <= 3) so one file doesn't dominate.
+        # Apply min_score cutoff (do not pad with below-threshold results or beyond per-file cap).
+        per_file_cap = 2 if top_k <= 3 else 3
         selected: list[_Candidate] = []
         file_counts: Counter[str] = Counter()
-        deferred: list[_Candidate] = []
+        low_relevance_count = 0
 
         for cand in deduped:
+            if cand.final_score < min_score:
+                low_relevance_count += 1
+                continue
             path = cand.chunk.file_path
-            if file_counts[path] < 2:
+            if file_counts[path] < per_file_cap:
                 selected.append(cand)
                 file_counts[path] += 1
-                if len(selected) == top_k:
-                    break
-            else:
-                deferred.append(cand)
-
-        if len(selected) < top_k:
-            for cand in deferred:
-                selected.append(cand)
                 if len(selected) == top_k:
                     break
 
@@ -287,6 +293,8 @@ class SearchEngine:
                 )
             )
 
+        if return_counts:
+            return results, low_relevance_count
         return results
 
 

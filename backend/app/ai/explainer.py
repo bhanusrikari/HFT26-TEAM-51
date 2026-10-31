@@ -87,10 +87,10 @@ async def explain(
 
         system_prompt = (
             "You are a code-navigation assistant. Answer ONLY from the numbered evidence. "
-            "Cite evidence by [n]. Do NOT invent file paths, function names, or line numbers; "
-            "refer to code by its [n] and the symbol/path shown. If the evidence does not "
-            "answer the question, say so plainly. 3-6 sentences, plain language, mention "
-            "which files/functions to read first."
+            "Cite evidence by [n] with its exact path:start-end (e.g. [1] path/to/file:10-25). "
+            "Do NOT invent file paths, function names, or line numbers; refer to code only by its [n] and the symbol/path:lines shown. "
+            "If the evidence does not clearly answer the question or is weak, say clearly that it is not clearly found in this repo. "
+            "3-6 sentences, plain language, mention which files/functions to read first."
         )
 
         user_message = (
