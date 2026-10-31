@@ -4,31 +4,30 @@ import { formatScore } from '../lib/format';
 export function ScoreBar({ score }) {
   const { scoreStr, percent } = formatScore(score);
 
-  // Dynamic bar coloring based on relevance tier
-  let barColor = 'bg-brand-blue';
+  // Dynamic bar coloring based on relevance tier — using burgundy gradient
+  let barStyle;
   if (percent >= 85) {
-    barColor = 'bg-emerald-500';
+    barStyle = { background: 'linear-gradient(90deg, #6B1A2A 0%, #8B2A3C 100%)' };
   } else if (percent >= 70) {
-    barColor = 'bg-brand-blue';
+    barStyle = { background: 'linear-gradient(90deg, #8B2A3C 0%, #B8860B 100%)' };
   } else {
-    barColor = 'bg-amber-500';
+    barStyle = { background: 'linear-gradient(90deg, #B8860B 0%, #C4A882 100%)' };
   }
 
   return (
     <div className="flex items-center gap-2" title={`Relevance score: ${scoreStr} (${percent}%)`}>
-      <span className="text-xs font-mono font-semibold text-dark-bright">
+      <span className="text-xs font-mono font-semibold text-ink">
         {scoreStr}
       </span>
-      <div className="w-16 h-2 bg-dark-subtle rounded-full overflow-hidden border border-dark-border/60">
+      <div className="w-16 h-2 bg-cream-darker rounded-full overflow-hidden border border-cream-darker/60">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-          style={{ width: `${percent}%` }}
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${percent}%`, ...barStyle }}
         />
       </div>
-      <span className="text-[11px] font-mono text-dark-muted hidden sm:inline">
+      <span className="text-[11px] font-mono text-ink-muted hidden sm:inline">
         {percent}%
       </span>
     </div>
   );
 }
-
