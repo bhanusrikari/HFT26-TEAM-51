@@ -1,5 +1,12 @@
+```jsx
 import React from 'react';
-import { Sparkles, AlertCircle, Info } from 'lucide-react';
+import {
+  Sparkles,
+  AlertCircle,
+  Info,
+  ExternalLink,
+  Bookmark,
+} from 'lucide-react';
 
 export function ExplanationPanel({ explanation, explanationError, isLoading, onCitationClick }) {
   if (isLoading) {
@@ -9,6 +16,7 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
           <div className="w-5 h-5 bg-cream-darker rounded-full" />
           <div className="h-4 w-64 bg-cream-darker rounded" />
         </div>
+
         <div className="space-y-2 pt-2">
           <div className="h-3.5 bg-cream-darker rounded w-full" />
           <div className="h-3.5 bg-cream-darker rounded w-5/6" />
@@ -25,8 +33,10 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
     const parts = text.split(/(\[\d+\])/g);
     return parts.map((part, index) => {
       const match = part.match(/^\[(\d+)\]$/);
+
       if (match) {
         const citationNumber = parseInt(match[1], 10);
+
         return (
           <button
             key={index}
@@ -44,10 +54,14 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
         );
       }
       const codeSegments = part.split(/(`[^`]+`)/g);
+
       return (
         <span key={index}>
           {codeSegments.map((seg, sIdx) => {
-            if (seg.startsWith('`') && seg.endsWith('`')) {
+            if (
+              seg.startsWith('`') &&
+              seg.endsWith('`')
+            ) {
               return (
                 <code key={sIdx} className="px-1.5 py-0.5 rounded-md text-[12px] font-mono font-semibold border shadow-2xs mx-0.5"
                   style={{ background: '#1C0A0D', color: '#FAF6F0', borderColor: '#E4D5C4' }}>
@@ -55,6 +69,7 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
                 </code>
               );
             }
+
             return seg;
           })}
         </span>
@@ -87,9 +102,15 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
       {explanationError && (
         <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
           <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+
           <div className="space-y-0.5">
-            <span className="font-semibold block">AI explanation unavailable</span>
-            <span className="text-amber-700/80">{explanationError}</span>
+            <span className="font-semibold block">
+              AI explanation unavailable
+            </span>
+
+            <span className="text-amber-700/80">
+              {explanationError}
+            </span>
           </div>
         </div>
       )}
@@ -101,3 +122,4 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
     </div>
   );
 }
+```

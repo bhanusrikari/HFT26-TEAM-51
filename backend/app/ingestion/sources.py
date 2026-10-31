@@ -1,6 +1,7 @@
 import logging
 import os
 import stat
+import subprocess
 import tempfile
 import urllib.parse
 import zipfile
@@ -183,6 +184,28 @@ def parse_github_url(url: str) -> Tuple[str, str, Optional[str]]:
             branch = branch[:-1]
 
     return owner, repo, branch
+
+def clone_github_shallow(owner: str, repo: str, branch: Optional[str], dest_dir: str) -> bool:
+    """Clone a public GitHub repository using git clone --depth 1.
+    Returns True on success, False if git fails or is unavailable.
+    """
+    token = os.getenv("GITHUB_TOKEN")
+    if token and token.strip():
+        clone_url = f"https://{token.strip()}@github.com/{owner}/{repo}.git"
+    else:
+        clone_url = f"https://github.com/{owner}/{repo}.git"
+
+    cmd = ["git", "clone", "--depth", "1"]
+    if branch:
+        cmd.extend(["--branch", branch])
+    cmd.extend([clone_url, dest_dir])
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        return res.returncode == 0
+    except Exception as e:
+        logger.warning("git clone failed (%s), falling back to zip download", e)
+        return False
 
 def download_github_zip(owner: str, repo: str, branch: Optional[str], dest_zip_path: str) -> None:
     """
