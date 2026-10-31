@@ -1,9 +1,8 @@
-```jsx
 import React, { useState } from 'react';
 import { UploadZip } from './UploadZip';
 import { GithubForm } from './GithubForm';
 import { IndexStatus } from './IndexStatus';
-import { EvalMetrics } from './EvalMetrics';
+import { SearchQualityMetrics } from './SearchQualityMetrics';
 import { SessionHistory } from './SessionHistory';
 import {
   FolderArchive,
@@ -26,7 +25,6 @@ export function RepoPanel({
   sessionRepos = [],
   searchHistory = [],
   onSelectRepo,
-  searchHistory = [],
   currentQuery = '',
   onSelectHistory,
   onRemoveHistoryItem,
@@ -47,7 +45,7 @@ export function RepoPanel({
           <span>Repository Source</span>
 
           {activeRepo && (
-            <span className="text-xs font-mono px-2 py-0.5 rounded bg-success/10 text-success border border-success/30 ml-1 truncate max-w-[150px]">
+            <span className="text-xs font-mono px-2 py-0.5 rounded bg-brand-burg/5 text-brand-burg border border-brand-burg/20 ml-1 truncate max-w-[150px]">
               {activeRepo.name}
             </span>
           )}
@@ -151,11 +149,7 @@ export function RepoPanel({
           repoDetails={repoDetails}
         />
 
-        {/* Evaluation and Retrieval Benchmarks */}
-        <EvalMetrics
-          activeRepo={activeRepo}
-          repoDetails={repoDetails}
-        />
+        <SearchQualityMetrics />
 
         {/* Session Search History (Claude Chats Style Dropdown) */}
         <SessionHistory
@@ -243,4 +237,3 @@ export function RepoPanel({
     </aside>
   );
 }
-```

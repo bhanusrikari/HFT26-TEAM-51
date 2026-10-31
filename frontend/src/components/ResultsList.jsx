@@ -1,4 +1,3 @@
-```jsx
 import React, { useState } from 'react';
 import { ResultCard } from './ResultCard';
 import { Search, Eye, AlertCircle } from 'lucide-react';
@@ -94,4 +93,3 @@ export function ResultsList({
     </div>
   );
 }
-```

@@ -43,6 +43,9 @@ Environment variables:
 - `VITE_API_BASE`: Relative path to API root (default: `/api`). Overrides the API base URL if needed.
 - `VITE_BACKEND_TARGET`: Backend URL for Vite dev server proxy (default: `http://localhost:8000`).
 
+Sign-in stores the entered email profile in browser localStorage. It is local-only
+and does not verify identity or create a backend account.
+
 ### 3. Run Development Server
 
 ```bash
@@ -69,7 +72,7 @@ The frontend adheres to strict separation between mock fixtures and the live Fas
   - The mock simulation toolbar is hidden.
 - **Mock Mode (`VITE_USE_MOCK=true`)**:
   - When set to `true`, the frontend runs in self-contained mock mode with 3 pre-indexed repositories (`repolens-backend`, `auth-gateway-ts`, `minirust-kv-engine`), realistic Python/TypeScript code fixtures, grounded explanations with `[1]`, `[2]` citations, and 600–1200ms simulated latency.
-  - Simulates all v1 and v2 endpoints: authentication, per-user repositories, search history, async indexing, and benchmark metrics.
+  - Simulates authentication, per-user repositories, search history, and async indexing.
   - An in-app **Mock Simulation** popover becomes available in the header allowing developers and judges to simulate backend error states:
     - **Clean 200 OK**: Normal search with grounded explanations and citations `[1]`, `[2]`.
     - **Empty results**: 0 matching snippets state.
@@ -108,9 +111,6 @@ All fetch calls in `src/api/client.js` use `credentials: 'include'` to pass sess
 
 | Endpoint | Method | Payload / Format | Purpose |
 | :--- | :--- | :--- | :--- |
-| `/api/health` | `GET` | — | Backend health polling (every 15s) |
-| `/api/auth/signup` | `POST` | `{"email", "password"}` | User registration with session cookie |
-| `/api/auth/login` | `POST` | `{"email", "password"}` | User sign in with httpOnly cookie |
 | `/api/auth/logout` | `POST` | — | Clear session cookie |
 | `/api/auth/me` | `GET` | — | Get authenticated user info |
 | `/api/repositories` | `GET` | — | List caller's indexed repositories |
@@ -119,14 +119,13 @@ All fetch calls in `src/api/client.js` use `credentials: 'include'` to pass sess
 | `/api/repositories/{repo_id}` | `GET` | — | Fetch repo stats, status, progress, languages |
 | `/api/search` | `POST` | `{"repo_id","query","top_k","explain","min_score"}` | Grounded code search with low-relevance count |
 | `/api/history` | `GET` | `?repo_id={optional}` | User search history |
-| `/api/benchmark` | `GET` | — | Precision@5 and indexing latency vs grep |
 
 ---
 
 ## ♿ Accessibility & Polish
 
 - Full keyboard navigation for cards and code viewers.
-- Contrast compliant dark palette (GitHub Dark `#0d1117`, `#161b22`, `#30363d`).
+- Consistent burgundy and cream palette across screens and dialogs.
 - `@media (prefers-reduced-motion)` respected across all animations.
 - Interactive `[1]`, `[2]` citations in AI explanation scroll to and trigger a CSS pulse ring on target code snippet cards.
 - Line numbers starting accurately at `start_line` for every code snippet.

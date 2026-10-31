@@ -152,18 +152,12 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
 
   return (
     <div
-      className={`rounded-lg p-4 border flex items-start justify-between gap-3 ${
-        is404
-          ? 'bg-amber-50 border-amber-200 text-amber-800'
-          : 'bg-red-50 border-red-200 text-red-800'
-      }`}
+      className="rounded-lg p-4 border flex items-start justify-between gap-3 bg-brand-burg/5 border-brand-burg/20 text-brand-burg"
       role="alert"
     >
       <div className="flex items-start gap-3">
         <AlertTriangle
-          className={`w-5 h-5 shrink-0 mt-0.5 ${
-            is404 ? 'text-amber-500' : 'text-danger'
-          }`}
+          className="w-5 h-5 shrink-0 mt-0.5 text-brand-burg"
         />
         <div className="space-y-1">
           <p className="text-sm font-semibold">
@@ -173,7 +167,7 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
             {error.detail || error.message || String(error)}
           </p>
           {is404 && (
-            <p className="text-xs text-amber-700/80 pt-1">
+            <p className="text-xs text-brand-burg/80 pt-1">
               This repository ID is unknown or expired. Please re-index the archive or URL.
             </p>
           )}
@@ -185,7 +179,7 @@ export function ErrorBanner({ error, onRetry, is404 = false, onReindex }) {
           <button
             type="button"
             onClick={onReindex}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 transition-colors"
+            className="px-3 py-1.5 rounded text-xs font-medium bg-brand-burg/10 hover:bg-brand-burg/15 text-brand-burg border border-brand-burg/25 transition-colors"
           >
             Re-index repository
           </button>

@@ -93,23 +93,6 @@ export const MOCK_HISTORY = [
   { id: 2, repo_id: 'repo-python-fastapi', query: 'How are search rankings calculated?', result_count: 4, timestamp: new Date(Date.now() - 7200000).toISOString() },
 ];
 
-export const MOCK_BENCHMARK = {
-  repo: 'sample-repo',
-  precision_at_5: 0.88,
-  grep_precision_at_5: 0.42,
-  index_time_seconds: 0.045,
-  file_count: 12,
-  chunk_count: 48,
-  queries: [
-    { query: 'service handler', repolens_precision: 1.0, grep_precision: 0.4, repolens_top_files: ['src/service.py'], grep_top_files: ['src/service.py', 'README.md'] },
-    { query: 'render component', repolens_precision: 1.0, grep_precision: 0.6, repolens_top_files: ['src/components/App.tsx'], grep_top_files: ['src/components/App.tsx'] },
-    { query: 'formatDate', repolens_precision: 1.0, grep_precision: 0.5, repolens_top_files: ['src/utils.js'], grep_top_files: ['src/utils.js'] },
-    { query: 'fetchData', repolens_precision: 0.8, grep_precision: 0.4, repolens_top_files: ['src/service.py'], grep_top_files: ['src/service.py'] },
-    { query: 'React component', repolens_precision: 0.8, grep_precision: 0.2, repolens_top_files: ['src/components/App.tsx'], grep_top_files: [] },
-  ],
-  timestamp: new Date().toISOString(),
-};
-
 // Simulated mock user session
 let mockLoggedInUser = {
   id: 1,

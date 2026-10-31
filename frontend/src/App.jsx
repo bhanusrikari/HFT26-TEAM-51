@@ -1,4 +1,3 @@
-```jsx
 import React, { useState, useEffect, useRef } from 'react';
 
 import { Header } from './components/Header';
@@ -8,7 +7,6 @@ import { ExplanationPanel } from './components/ExplanationPanel';
 import { ResultsList } from './components/ResultsList';
 import { IndexingOverlay } from './components/IndexingOverlay';
 import AuthModal from './components/AuthModal';
-import BenchmarkModal from './components/BenchmarkModal';
 
 import {
   InitialState,
@@ -30,26 +28,43 @@ import {
 } from './api/client';
 
 export default function App() {
-  const {
-    user,
-    sessionRepos,
-    searchHistory,
-    login,
-    logout,
-    addRepo,
-    addSearchHistory,
-    removeSearchHistoryItem,
-    clearSearchHistory,
-  } = useSession();
-
-  // Benchmark modal
-  const [showBenchmark, setShowBenchmark] = useState(false);
-
   // Repository state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState(null);
   const [activeRepo, setActiveRepo] = useState(null);
   const [repoDetails, setRepoDetails] = useState(null);
   const [sessionRepos, setSessionRepos] = useState([]);
   const [searchHistory, setSearchHistory] = useState([]);
+  const removeSearchHistoryItem = (id) => {
+    setSearchHistory((previous) => previous.filter((item) => item.id !== id));
+  };
+  const clearSearchHistory = (repoId = null) => {
+    setSearchHistory((previous) =>
+      repoId ? previous.filter((item) => item.repo_id !== repoId) : [],
+    );
+  };
+  const addSearchHistory = (entry) => {
+    const newEntry = {
+      id: `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: Date.now(),
+      formattedTime: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      ...entry,
+    };
+    setSearchHistory((previous) => [
+      newEntry,
+      ...previous.filter(
+        (item) =>
+          !(
+            item.repo_id === entry.repo_id &&
+            item.query.toLowerCase() === entry.query.toLowerCase()
+          ),
+      ),
+    ].slice(0, 50));
+  };
 
   // Indexing state
   const [isIndexing, setIsIndexing] = useState(false);
@@ -369,7 +384,7 @@ export default function App() {
   };
 
   // 3. Handle Search & record in session history
-  const handleSearch = async ({ query, top_k, explain }) => {
+  const handleSearch = async ({ query, top_k, explain, min_score = 0.35 }) => {
     if (!activeRepo) return;
 
     setIsSearching(true);
@@ -438,6 +453,12 @@ export default function App() {
     }
   };
 
+  const handleShowLowRelevance = () => {
+    if (searchParams) {
+      handleSearch({ ...searchParams, min_score: 0 });
+    }
+  };
+
   // 4. Citation click handler: jump smoothly to result card and pulse highlight
   const handleCitationClick = (citationNumber) => {
     const cardEl = document.getElementById(
@@ -502,7 +523,6 @@ export default function App() {
       <Header
         user={currentUser}
         onLogout={handleLogout}
-        onOpenBenchmark={() => setShowBenchmark(true)}
       />
 
       {/* Main layout */}
@@ -518,7 +538,6 @@ export default function App() {
           sessionRepos={sessionRepos}
           searchHistory={searchHistory}
           onSelectRepo={(id) => selectRepo(id)}
-          searchHistory={searchHistory}
           currentQuery={searchQuery}
           onSelectHistory={handleSelectHistory}
           onRemoveHistoryItem={removeSearchHistoryItem}
@@ -643,13 +662,6 @@ export default function App() {
         />
       )}
 
-      {/* Benchmark modal */}
-      {showBenchmark && (
-        <BenchmarkModal
-          onClose={() => setShowBenchmark(false)}
-        />
-      )}
     </div>
   );
 }
-```

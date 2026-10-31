@@ -1,4 +1,3 @@
-```jsx
 import React, { useState, useEffect } from 'react';
 import {
   Search,
@@ -191,7 +190,7 @@ export function SearchBar({
           </div>
 
           {!hasActiveRepo && (
-            <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-xs font-mono">
+            <span className="text-brand-burg bg-brand-burg/5 px-2 py-0.5 rounded border border-brand-burg/20 text-xs font-mono">
               ⚡ Index a repository to activate search
             </span>
           )}
@@ -221,4 +220,3 @@ export function SearchBar({
     </div>
   );
 }
-```

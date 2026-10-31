@@ -109,7 +109,7 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
           </div>
 
           <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono font-semibold text-brand-burg">
-            <ShieldCheck className="w-4 h-4 text-success" />
+            <ShieldCheck className="w-4 h-4 text-brand-burg" />
             <span>Exact-Line Guarantee</span>
           </div>
         </div>
@@ -130,7 +130,7 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
                     isCurrent
                       ? 'bg-cream-dark border-brand-burg shadow-md scale-[1.02]'
                       : isDone
-                      ? 'bg-cream border-success/40'
+                      ? 'bg-cream border-brand-burg/20'
                       : 'bg-cream/40 border-cream-darker opacity-50'
                   }`}
                 >
@@ -139,7 +139,7 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
                       isCurrent
                         ? 'bg-brand-burg text-cream shadow-md animate-pulse'
                         : isDone
-                        ? 'bg-success/15 text-success'
+                        ? 'bg-brand-burg/10 text-brand-burg'
                         : 'bg-cream-darker text-ink-muted'
                     }`}
                   >
@@ -170,21 +170,21 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
           </div>
 
           {/* Simulated Live Developer Terminal */}
-          <div className="rounded-xl overflow-hidden border border-[#3B1F27] bg-[#160C0E] shadow-inner text-xs font-mono">
+          <div className="rounded-xl overflow-hidden border border-cream-darker bg-cream shadow-inner text-xs font-mono">
             {/* Terminal header */}
-            <div className="flex items-center justify-between px-3 py-2 bg-[#241318] border-b border-[#3B1F27] text-[#D4B8A5]">
+            <div className="flex items-center justify-between px-3 py-2 bg-cream-dark border-b border-cream-darker text-ink-muted">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-burg inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-burgLight inline-block" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-gold inline-block" />
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-[#FEFCFA] font-semibold pl-2">
+                <div className="flex items-center gap-1.5 text-[11px] text-ink font-semibold pl-2">
                   <Terminal className="w-3.5 h-3.5 text-brand-burgLight" />
                   <span>repolens-chunker.log</span>
                 </div>
               </div>
-              <span className="text-[10px] text-[#8E6571]">UTF-8 • python-ast</span>
+              <span className="text-[10px] text-ink-muted">UTF-8 • python-ast</span>
             </div>
 
             {/* Terminal log output */}
@@ -192,7 +192,7 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
               {TERMINAL_LOGS.slice(0, logIndex + 1).map((log, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-2 leading-relaxed text-[#FAF6F0]"
+                  className="flex items-start gap-2 leading-relaxed text-ink"
                 >
                   <span className="text-brand-burgLight select-none font-bold">
                     &gt;
@@ -200,8 +200,8 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
                   <span
                     className={
                       i === logIndex
-                        ? 'text-emerald-400 font-semibold'
-                        : 'text-[#D4B8A5]'
+                        ? 'text-brand-burg font-semibold'
+                        : 'text-ink-muted'
                     }
                   >
                     {log}
@@ -210,7 +210,7 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
               ))}
               <div className="flex items-center gap-1 text-brand-burgLight animate-pulse pt-0.5">
                 <span>▋</span>
-                <span className="text-[10px] text-[#8E6571]">
+                <span className="text-[10px] text-ink-muted">
                   Chunking AST nodes…
                 </span>
               </div>
@@ -234,4 +234,3 @@ export function IndexingOverlay({ isIndexing, indexingStep }) {
     </div>
   );
 }
-

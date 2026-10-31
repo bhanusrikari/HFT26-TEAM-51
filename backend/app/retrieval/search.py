@@ -184,10 +184,15 @@ class SearchEngine:
         # Normalize lexical across candidates
         raw_lex_list = [c.lexical_raw for c in candidates]
         norm_lex_list = min_max_normalize(raw_lex_list)
+        all_lex_equal = len(set(raw_lex_list)) == 1
 
         for c, norm_lex in zip(candidates, norm_lex_list):
             c.lexical_norm = norm_lex
-            lex_effective = 1.0 if (norm_lex == 0.0 and c.lexical_raw > 0.0 and len(set(raw_lex_list)) == 1) else norm_lex
+            lex_effective = (
+                1.0
+                if norm_lex == 0.0 and c.lexical_raw > 0.0 and all_lex_equal
+                else norm_lex
+            )
             score = combine(
                 lexical=lex_effective,
                 symbol=c.symbol_score,
@@ -198,12 +203,12 @@ class SearchEngine:
 
         # Retrieve top candidate pool (30-50) without full sort — O(n log k) vs O(n log n)
         pool_target = max(50, top_k * 5)
-        candidate_pool = heapq.nlargest(
+        candidate_pool = heapq.nsmallest(
             min(pool_target, len(candidates)),
             candidates,
             key=lambda c: (
-                round(c.final_score, 6),
-                -(c.chunk.end_line - c.chunk.start_line + 1),
+                -round(c.final_score, 6),
+                c.chunk.end_line - c.chunk.start_line + 1,
                 c.chunk.file_path,
                 c.chunk.start_line,
             ),

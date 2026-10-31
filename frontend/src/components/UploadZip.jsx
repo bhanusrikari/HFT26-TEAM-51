@@ -146,8 +146,8 @@ export function UploadZip({ onUpload, isIndexing }) {
 
       {/* Client validation error */}
       {validationError && (
-        <div className="flex items-center gap-1.5 p-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-800">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+        <div className="flex items-center gap-1.5 p-2 rounded-lg bg-brand-burg/5 border border-brand-burg/20 text-xs text-brand-burg">
+          <AlertCircle className="w-4 h-4 shrink-0 text-brand-burg" />
           <span>{validationError}</span>
         </div>
       )}

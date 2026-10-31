@@ -1,4 +1,3 @@
-```jsx
 import React from 'react';
 import {
   Sparkles,
@@ -100,15 +99,15 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
       )}
 
       {explanationError && (
-        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
-          <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-brand-burg/5 border border-brand-burg/20 text-xs text-brand-burg">
+          <AlertCircle className="w-4 h-4 text-brand-burg shrink-0 mt-0.5" />
 
           <div className="space-y-0.5">
             <span className="font-semibold block">
               AI explanation unavailable
             </span>
 
-            <span className="text-amber-700/80">
+            <span className="text-brand-burg/80">
               {explanationError}
             </span>
           </div>
@@ -122,4 +121,3 @@ export function ExplanationPanel({ explanation, explanationError, isLoading, onC
     </div>
   );
 }
-```

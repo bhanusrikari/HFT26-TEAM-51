@@ -64,8 +64,8 @@ export function CodeViewer({
           >
             {copiedRef ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400 font-sans">Copied ref</span>
+                <Check className="w-3.5 h-3.5 text-brand-burgLight" />
+                <span className="text-brand-burgLight font-sans">Copied ref</span>
               </>
             ) : (
               <>
@@ -85,8 +85,8 @@ export function CodeViewer({
           >
             {copiedCode ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400 font-sans">Copied!</span>
+                <Check className="w-3.5 h-3.5 text-brand-burgLight" />
+                <span className="text-brand-burgLight font-sans">Copied!</span>
               </>
             ) : (
               <>

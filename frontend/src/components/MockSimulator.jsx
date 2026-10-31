@@ -1,4 +1,3 @@
-```jsx
 import React, { useState } from 'react';
 import {
   isMockEnabled,
@@ -28,7 +27,7 @@ export function MockSimulator() {
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium border transition-all ${
           currentError !== 'none'
-            ? 'bg-amber-100 border-amber-300 text-amber-900 animate-pulse'
+            ? 'bg-brand-burg/10 border-brand-burg/30 text-brand-burg animate-pulse'
             : 'bg-brand-burg/10 border-brand-burg/30 text-brand-burg hover:bg-brand-burg/15'
         }`}
         title="Mock Error Simulation Controls"
@@ -38,7 +37,7 @@ export function MockSimulator() {
         <span>Mock Simulation</span>
 
         {currentError !== 'none' && (
-          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          <span className="w-2 h-2 rounded-full bg-brand-burg" />
         )}
       </button>
 
@@ -72,7 +71,7 @@ export function MockSimulator() {
                 {
                   id: 'none',
                   label: 'Normal (Clean 200 OK)',
-                  color: 'text-emerald-700',
+                  color: 'text-brand-burg',
                 },
                 {
                   id: 'empty',
@@ -82,17 +81,17 @@ export function MockSimulator() {
                 {
                   id: 'explanation_error',
                   label: 'Explanation Error (LLM quota)',
-                  color: 'text-amber-700',
+                  color: 'text-brand-burg',
                 },
                 {
                   id: '404',
                   label: '404 Not Found (Missing Repo)',
-                  color: 'text-amber-700',
+                  color: 'text-brand-burg',
                 },
                 {
                   id: '502',
                   label: '502 Bad Gateway (Upstream Fail)',
-                  color: 'text-red-700',
+                  color: 'text-brand-burg',
                 },
               ].map((item) => (
                 <button
@@ -128,4 +127,3 @@ export function MockSimulator() {
     </div>
   );
 }
-```

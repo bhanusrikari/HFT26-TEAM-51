@@ -4,7 +4,6 @@
 import {
   MOCK_REPOSITORIES,
   MOCK_HISTORY,
-  MOCK_BENCHMARK,
   getMockUser,
   setMockUser,
   simulateLatency,
@@ -15,6 +14,17 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 const isMockActive = import.meta.env.VITE_USE_MOCK === 'true';
+const LOCAL_USER_KEY = 'rl_user';
+
+function readLocalUser() {
+  try {
+    const raw = localStorage.getItem(LOCAL_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.error('Could not read the saved local profile', error);
+    return null;
+  }
+}
 
 const listeners = new Set();
 function notifyListeners() {
@@ -65,109 +75,47 @@ async function handleResponse(response) {
   throw err;
 }
 
-/**
- * Health check: GET /api/health
- */
-export async function checkHealth() {
-  if (isMockActive) {
-    await simulateLatency(100, 200);
-    return { status: 'ok' };
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/health`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    return await handleResponse(res);
-  } catch (err) {
-    if (!err.detail) {
-      err.detail = 'Cannot connect to backend server';
-    }
+export async function login({ email }) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    const err = new Error('Please provide a valid email address');
+    err.detail = err.message;
     throw err;
   }
-}
 
-/**
- * Auth: POST /api/auth/signup
- */
-export async function signup({ email, password }) {
-  if (isMockActive) {
-    await simulateLatency();
-    const user = { id: Date.now(), email, created_at: new Date().toISOString() };
-    setMockUser(user);
-    return user;
+  const user = {
+    id: `local-${normalizedEmail}`,
+    email: normalizedEmail,
+    created_at: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(user));
+  } catch (error) {
+    console.error('Could not save the local profile', error);
+    throw new Error('Could not save your profile in this browser');
   }
-
-  const res = await fetch(`${API_BASE}/auth/signup`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  return await handleResponse(res);
+  if (isMockActive) setMockUser(user);
+  return user;
 }
 
-/**
- * Auth: POST /api/auth/login
- */
-export async function login({ email, password }) {
-  if (isMockActive) {
-    await simulateLatency();
-    const user = { id: 1, email, created_at: new Date().toISOString() };
-    setMockUser(user);
-    return user;
-  }
-
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  return await handleResponse(res);
-}
-
-/**
- * Auth: POST /api/auth/logout
- */
 export async function logout() {
-  if (isMockActive) {
-    await simulateLatency(100, 200);
-    setMockUser(null);
-    return { detail: 'Logged out' };
+  try {
+    localStorage.removeItem(LOCAL_USER_KEY);
+  } catch (error) {
+    console.error('Could not remove the saved local profile', error);
+    throw new Error('Could not sign out in this browser');
   }
-
-  const res = await fetch(`${API_BASE}/auth/logout`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  return await handleResponse(res);
+  if (isMockActive) setMockUser(null);
+  return { detail: 'Logged out' };
 }
 
-/**
- * Auth: GET /api/auth/me
- */
 export async function getMe() {
-  if (isMockActive) {
-    await simulateLatency(100, 200);
-    const user = getMockUser();
-    if (!user) {
-      const err = new Error('Not authenticated');
-      err.status = 401;
-      err.detail = 'Not authenticated';
-      throw err;
-    }
-    return user;
+  const user = readLocalUser();
+  if (user) return user;
+  if (isMockActive && getMockUser()) {
+    return getMockUser();
   }
-
-  const res = await fetch(`${API_BASE}/auth/me`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  return await handleResponse(res);
+  throw Object.assign(new Error('Not signed in'), { status: 401 });
 }
 
 /**
@@ -186,6 +134,8 @@ export async function listRepositories() {
       created_at: new Date().toISOString(),
     }));
   }
+
+  if (readLocalUser()) return [];
 
   const res = await fetch(`${API_BASE}/repositories`, {
     method: 'GET',
@@ -328,6 +278,8 @@ export async function getSearchHistory(repoId = null) {
     return sessionMockHistory;
   }
 
+  if (readLocalUser()) return [];
+
   const url = repoId ? `${API_BASE}/history?repo_id=${encodeURIComponent(repoId)}` : `${API_BASE}/history`;
   const res = await fetch(url, {
     method: 'GET',
@@ -337,18 +289,9 @@ export async function getSearchHistory(repoId = null) {
   return await handleResponse(res);
 }
 
-/**
- * Benchmark: GET /api/benchmark
- */
 export async function getBenchmark() {
-  if (isMockActive) {
-    await simulateLatency(200, 300);
-    return MOCK_BENCHMARK;
-  }
-
   const res = await fetch(`${API_BASE}/benchmark`, {
     method: 'GET',
-    credentials: 'include',
     headers: { Accept: 'application/json' },
   });
   return await handleResponse(res);
