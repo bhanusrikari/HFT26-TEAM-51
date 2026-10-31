@@ -181,6 +181,87 @@ def test_exact_symbol_queries_rank_first():
     assert "AuthService" in (results_auth[0].symbol or "")
 
 
+def test_semantic_matches_can_retrieve_without_lexical_overlap():
+    chunks = [
+        Chunk("semantic_match", "app/relevant.py", "python", "relevant", "function", 1, 3, "def relevant(): pass"),
+        Chunk("semantic_other", "app/other.py", "python", "other", "function", 1, 3, "def other(): pass"),
+    ]
+    index = RepoIndex(repo_id="semantic-only", name="semantic-only", files=[], chunks=chunks)
+
+    with patch(
+        "app.retrieval.search.embeddings.get_chunk_embeddings",
+        return_value=[[0.9], [0.2]],
+    ), patch(
+        "app.retrieval.search.embeddings.compute_semantic_scores",
+        return_value=[0.9, 0.2],
+    ):
+        results = SearchEngine(index).search(
+            "unseen conceptual query", top_k=1, min_score=0.35
+        )
+
+    assert len(results) == 1
+    assert results[0].file_path == "app/relevant.py"
+    assert "semantic" in results[0].match_reasons
+
+
+def test_unknown_query_terms_do_not_dilute_matching_scores():
+    chunk = Chunk(
+        "fetch_remote",
+        "modules/fetch_remote.py",
+        "python",
+        "fetch_remote",
+        "function",
+        1,
+        3,
+        "def fetch_remote(): pass",
+    )
+    index = RepoIndex(
+        repo_id="oov-terms",
+        name="oov-terms",
+        files=[],
+        chunks=[chunk],
+    )
+
+    results = SearchEngine(index).search("fetchData", top_k=1)
+
+    assert len(results) == 1
+    assert results[0].score == 1.0
+
+
+def test_candidate_pool_expands_to_fill_diverse_results():
+    chunks = [
+        Chunk(
+            f"common_{i}",
+            "a.py",
+            "python",
+            "common",
+            "function",
+            i * 4 + 1,
+            i * 4 + 3,
+            "def common(): return shared_token",
+        )
+        for i in range(51)
+    ]
+    chunks.append(
+        Chunk(
+            "other_file",
+            "z.py",
+            "python",
+            "common",
+            "function",
+            1,
+            3,
+            "def common(): return shared_token",
+        )
+    )
+    index = RepoIndex(repo_id="pool-expand", name="pool-expand", files=[], chunks=chunks)
+
+    results = SearchEngine(index).search("shared_token", top_k=3)
+
+    assert len(results) == 3
+    assert "z.py" in [result.file_path for result in results]
+
+
 # -------------------------------------------------------------------------
 # 7. Path-Matching Queries
 # -------------------------------------------------------------------------

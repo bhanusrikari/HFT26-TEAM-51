@@ -118,18 +118,20 @@ class SearchEngine:
         if not q_tokens:
             return ([], 0) if return_counts else []
 
-        # If none of the query tokens exist in the corpus vocabulary, return []
-        if not any(qt in self.corpus_vocab for qt in q_tokens):
-            return ([], 0) if return_counts else []
-
-        q_tokens_set = set(q_tokens)
-        total_q = float(len(q_tokens))
+        match_tokens = [token for token in q_tokens if token in self.corpus_vocab]
+        q_tokens_set = set(match_tokens)
+        total_q = float(max(len(match_tokens), 1))
         q_lower = query.strip().lower()
         q_norm = re.sub(r"[^a-zA-Z0-9]", "", q_lower)
-        bm25_scores = self.bm25.score_all(q_tokens)
         sem_scores = embeddings.compute_semantic_scores(
             query, self.chunks, self.chunk_embeddings
         )
+
+        # Keep semantic-only matches when embeddings are available.
+        if not match_tokens and sem_scores is None:
+            return ([], 0) if return_counts else []
+
+        bm25_scores = self.bm25.score_all(match_tokens)
 
         candidates: list[_Candidate] = []
 
@@ -140,14 +142,20 @@ class SearchEngine:
 
             has_sym_overlap = bool(sym_set and not sym_set.isdisjoint(q_tokens_set))
             has_path_overlap = bool(path_set and not path_set.isdisjoint(q_tokens_set))
+            sem_score = sem_scores[idx] if sem_scores is not None else None
 
-            # Fast path: if no lexical score and no token overlap with symbol/path, skip expensive checks
-            if lex_raw == 0.0 and not has_sym_overlap and not has_path_overlap:
+            # Skip only when neither lexical nor semantic retrieval found a match.
+            if (
+                lex_raw == 0.0
+                and not has_sym_overlap
+                and not has_path_overlap
+                and (sem_score is None or sem_score <= 0.0)
+            ):
                 continue
 
             # Symbol score
             if sym_set:
-                sym_overlap = sum(1 for qt in q_tokens if qt in sym_set)
+                sym_overlap = sum(1 for qt in match_tokens if qt in sym_set)
                 sym_score = sym_overlap / total_q
                 if _is_exact_symbol_match(q_lower, q_norm, q_tokens, chunk.symbol):
                     sym_score = min(1.0, sym_score + 0.5)
@@ -156,14 +164,12 @@ class SearchEngine:
 
             # Path score
             if path_set:
-                path_overlap = sum(1 for qt in q_tokens if qt in path_set)
+                path_overlap = sum(1 for qt in match_tokens if qt in path_set)
                 path_score = path_overlap / total_q
                 if _is_basename_match(q_tokens_set, chunk.file_path):
                     path_score = min(1.0, path_score + 0.3)
             else:
                 path_score = 0.0
-
-            sem_score = sem_scores[idx] if sem_scores is not None else None
 
             candidates.append(
                 _Candidate(
@@ -199,57 +205,62 @@ class SearchEngine:
                 path=c.path_score,
                 semantic=c.semantic_score,
             )
+            if (
+                c.semantic_score is not None
+                and c.lexical_raw == 0.0
+                and c.symbol_score == 0.0
+                and c.path_score == 0.0
+            ):
+                score = c.semantic_score
             c.final_score = min(1.0, max(0.0, score))
 
-        # Retrieve top candidate pool (30-50) without full sort — O(n log k) vs O(n log n)
-        pool_target = max(50, top_k * 5)
-        candidate_pool = heapq.nsmallest(
-            min(pool_target, len(candidates)),
-            candidates,
-            key=lambda c: (
-                -round(c.final_score, 6),
-                c.chunk.end_line - c.chunk.start_line + 1,
-                c.chunk.file_path,
-                c.chunk.start_line,
-            ),
-        )
-
-        # Dedup: drop overlapping chunks (same file, overlapping lines).
-        # Keep higher-scoring one (prefer smaller/more specific on ties).
-        deduped: list[_Candidate] = []
-        file_accepted_ranges: dict[str, list[tuple[int, int]]] = {}
-        for cand in candidate_pool:
-            path = cand.chunk.file_path
-            cand_s, cand_e = cand.chunk.start_line, cand.chunk.end_line
-            overlaps = False
-            if path in file_accepted_ranges:
-                for acc_s, acc_e in file_accepted_ranges[path]:
-                    if max(cand_s, acc_s) <= min(cand_e, acc_e):
-                        overlaps = True
-                        break
-            if not overlaps:
-                deduped.append(cand)
-                if path not in file_accepted_ranges:
-                    file_accepted_ranges[path] = []
-                file_accepted_ranges[path].append((cand_s, cand_e))
-
-        # Diversity: max 3 chunks per file (capped at 2 when top_k <= 3) so one file doesn't dominate.
-        # Apply min_score cutoff (do not pad with below-threshold results or beyond per-file cap).
+        # Expand the pool only if deduplication and diversity leave too few results.
+        pool_target = min(len(candidates), max(50, top_k * 5))
         per_file_cap = 2 if top_k <= 3 else 3
-        selected: list[_Candidate] = []
-        file_counts: Counter[str] = Counter()
-        low_relevance_count = 0
+        while True:
+            candidate_pool = heapq.nsmallest(
+                pool_target,
+                candidates,
+                key=lambda c: (
+                    -round(c.final_score, 6),
+                    c.chunk.end_line - c.chunk.start_line + 1,
+                    c.chunk.file_path,
+                    c.chunk.start_line,
+                ),
+            )
 
-        for cand in deduped:
-            if cand.final_score < min_score:
-                low_relevance_count += 1
-                continue
-            path = cand.chunk.file_path
-            if file_counts[path] < per_file_cap:
-                selected.append(cand)
-                file_counts[path] += 1
-                if len(selected) == top_k:
-                    break
+            # Dedup overlapping chunks, retaining the highest-ranked specific chunk.
+            deduped: list[_Candidate] = []
+            file_accepted_ranges: dict[str, list[tuple[int, int]]] = {}
+            for cand in candidate_pool:
+                path = cand.chunk.file_path
+                cand_s, cand_e = cand.chunk.start_line, cand.chunk.end_line
+                overlaps = any(
+                    max(cand_s, acc_s) <= min(cand_e, acc_e)
+                    for acc_s, acc_e in file_accepted_ranges.get(path, [])
+                )
+                if not overlaps:
+                    deduped.append(cand)
+                    file_accepted_ranges.setdefault(path, []).append((cand_s, cand_e))
+
+            # Apply the relevance cutoff and per-file diversity cap.
+            selected: list[_Candidate] = []
+            file_counts: Counter[str] = Counter()
+            low_relevance_count = 0
+            for cand in deduped:
+                if cand.final_score < min_score:
+                    low_relevance_count += 1
+                    continue
+                path = cand.chunk.file_path
+                if file_counts[path] < per_file_cap:
+                    selected.append(cand)
+                    file_counts[path] += 1
+                    if len(selected) == top_k:
+                        break
+
+            if len(selected) >= top_k or pool_target == len(candidates):
+                break
+            pool_target = min(len(candidates), pool_target * 2)
 
         # Final sort to ensure returned results are strictly ordered by score
         selected.sort(

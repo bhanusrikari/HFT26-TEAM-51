@@ -3,7 +3,7 @@ import { Activity, Target } from 'lucide-react';
 import { getBenchmark } from '../api/client';
 
 function percentage(value) {
-  return `${Math.round(value * 100)}%`;
+  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value * 100)}%`;
 }
 
 export function SearchQualityMetrics() {
